@@ -2,7 +2,7 @@
     #^{:author "Anthony Simpson (Rayne)",
        :doc "A small IRC library to abstract over lower-level IRC connection handling."} 
     irclj.irclj
-    (:use clojure.contrib.io)
+    (:use [clojure.contrib io [string :only [join]]])
     (:import [java.io PrintStream PrintWriter BufferedReader InputStreamReader]
 	     java.net.Socket))
 
@@ -17,51 +17,89 @@
 	 port 6667}}]
   (IRC. name password server username port realname fnmap))
 
-(defn send-message 
+(defn- send-msg
   "Takes an IRC, a message and a target to send it to, and sends an IRC message to
   target."
-  [{{sockout :sockout} :connection} target message]
-  (.println sockout (str "PRIVMSG " target " :" message))
-  (println (str ">>>PRIVMSG " target " :" message)))
+  [type irc target message]
+  (let [{{sockout :sockout} :connection} @irc]
+    (.println sockout (str type " " target " :" message)))
+  (println (str ">>>" type " " target " :" message)))
+
+(defn send-message
+  "Takes an IRC, a message and a target to send it to, and sends an IRC message to
+  target."
+  [irc target message]
+  (send-msg "PRIVMSG" irc target message))
+
+(defn send-notice
+  "Takes an IRC, a message, and a target to send to, and sends a NOTICE to target"
+  [irc target message]
+  (send-msg "NOTICE" irc target message))
+
+(defn extract-message [s]
+  (apply str (rest (join " " s))))
 
 (defn mess-to-map
   "Parses a message into a map."
-  [[user doing & more]]
+  [[user doing & [channel & message :as more]]]
   (let [[nick ident hostmask] (.split user "\\!|\\@")
 	message-map {:user user
 		     :nick nick
+		     :hmask hostmask
 		     :ident ident
 		     :doing doing}]
     (merge message-map 
 	   (condp = doing
-	     "PRIVMSG" {:channel (first more) :message (->> more second rest butlast (apply str))}
-	     "QUIT" {:reason (apply str (rest more))}
+	     "PRIVMSG" {:channel channel :message (extract-message message)}
+	     "QUIT" {:reason (extract-message more)}
 	     "JOIN" {:channel (apply str (rest more))}
-	     "PART" {:channel (first more) :reason (apply str (rest (second more)))}
-	     "NOTICE" {:target (first more) :message (->> more second rest butlast (apply str))}
+	     "PART" {:channel channel :reason (extract-message message)}
+	     "NOTICE" {:target channel :message (extract-message message)}
 	     "MODE" {:channel (first more) :mode (second more) :user (last more)}
 	     {}))))
 
-(defn handle [& more])
+(defmacro when-not-nil [pred & body]
+  `(when-not (nil? ~pred) ~@body))
+
+;insert handle-ctcp here
+
+(defn handle [{:keys [user nick ident doing channel message reason target mode] :as info} irc]
+  (let [{{:keys [on-message on-quit on-part on-join on-notice on-mode]} :fnmap} @irc
+	info-map (assoc info :irc irc)]
+    (condp = doing
+      "PRIVMSG" (if (= (first message) \)
+		  (handle-ctcp nick message)
+		  (when-not-nil on-message (on-message 
+					    (if (= channel (:name @irc)) 
+					      (assoc info-map :channel nick) 
+					      info-map))))
+      "QUIT" (when-not-nil on-quit (on-quit info-map))
+      "JOIN" (when-not-nil on-join (on-join info-map))
+      "PART" (when-not-nil on-part (on-part info-map))
+      "NOTICE" (when-not-nil on-notice (on-notice info-map))
+      "MODE" (when-not-nil on-mode (on-mode info-map))
+      nil)))
 
 (defn close
   "Closes an IRC connection (including the socket)."
-  [{{:keys [sock sockout sockin]} :connection}]
-  (.println sockout "QUIT")
-  (.close sock)
-  (.close sockin)
-  (.close sockout))
+  [irc]
+  (let [{{:keys [sock sockout sockin]} :connection} @irc]
+    (.println sockout "QUIT")
+    (.close sock)
+    (.close sockin)
+    (.close sockout)))
 
 (defn connect
   "Takes an IRC defrecord and optionally, a sequence of channels to join and
   connects to IRC based on the information provided in the IRC and optionally joins
   the channels. The connection itself runs in a separate thread, and the input stream
-  and output stream are merged into the IRC and returned."
+  and output stream are merged into the IRC and returned as a ref."
   [#^IRC {:keys [name password server username port realname fnmap server port] :as botmap}
    & {channels :channels}]
   (let [sock (Socket. server port)
 	sockout (PrintWriter. (output-stream sock) true)
-	sockin (reader (input-stream sock))]
+	sockin (reader (input-stream sock))
+	irc (ref (assoc botmap :connection {:sock sock :sockin sockin :sockout sockout}))]
     (doto sockout
       (.println (str "NICK " name))
       (.println (str "USER " username " na na :" realname)))
@@ -76,12 +114,13 @@
 				 (.startsWith rline "PING") (.println sockout (.replace rline "PING" "PONG"))
 				 (= (second words) "001") (doseq [channel channels] 
 							    (.println sockout (str "JOIN " channel))))
-				:else (handle (mess-to-map words) fnmap))))))
-    (assoc botmap :connection {:sock sock :sockin sockin :sockout sockout})))
+				:else (handle (mess-to-map words) irc))))))
+    irc))
 
+(def fnmap {:on-message (fn [{:keys [nick channel message irc]}] 
+			  (send-message irc channel message))})
 
-(def bot (create-bot {:name "ircljbot" :server "irc.freenode.net"}))
+(def bot (create-bot {:name "ircljbot" :server "irc.freenode.net" :fnmap fnmap}))
 (def newbot (connect bot :channels ["#irclj"]))
-(send-message newbot "#irclj" (read-line))
 (read-line)
 (close newbot)
