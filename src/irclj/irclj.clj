@@ -41,6 +41,12 @@
   [irc target message]
   (send-msg "PRIVMSG" irc target (str \ "ACTION" " " message \)))
 
+(defn set-nick
+  "Changes the connectors nick."
+  [irc nick]
+  (send-msg "NICK" irc nick nil)
+  (dosync (alter irc assoc :name nick)))
+
 (defn extract-message [s]
   (apply str (rest (join " " s))))
 
@@ -131,7 +137,11 @@
     irc))
 
 (def fnmap {:on-message (fn [{:keys [nick channel message irc]}] 
-			  (send-action irc channel message))
+			  (let [[cmd & more] (.split message " ")] 
+			    (condp = cmd
+			      "$whoareyou?" (send-action irc channel (:name @irc))
+			      "$setnick" (set-nick irc (first more))
+			      nil)))
 	    :on-quit (fn [{:keys [nick reason irc]}] 
 		       (send-message irc "#irclj" (str nick " quit. His reason was: " reason)))
 	    :on-part (fn [{:keys [nick reason channel irc]}]
