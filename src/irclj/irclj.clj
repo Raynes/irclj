@@ -47,6 +47,14 @@
   (send-msg "NICK" irc nick nil)
   (dosync (alter irc assoc :name nick)))
 
+(defn join-chan
+  [irc channel]
+  (send-msg "JOIN" irc "" (str ":" channel)))
+
+(defn part-chan
+  [irc channel]
+  (send-msg "PART" irc "" channel))
+
 (defn set-mode
   "Set modes."
   [irc channel mode nick]
