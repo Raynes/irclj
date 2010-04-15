@@ -6,6 +6,13 @@
     (:import [java.io PrintStream PrintWriter BufferedReader InputStreamReader]
 	     java.net.Socket))
 
+(defrecord IRC [name password server username port realname fnmap])
+
+(defn create-bot [{:keys [name password server username port realname fnmap]
+		   :or {name "irclj" username "irclj" realname "teh bawt"
+			port 6667}}]
+  (IRC. name password server username port realname fnmap))
+
 (defn mess-to-map
   ""
   [[user doing & more]]
@@ -36,11 +43,10 @@
 
 (defn connect
   ""
-  [{:keys [name password server channels username port realname fnmap] 
-    :or {port 6667 username "irclj" realname "I'm a robot, hear me roar!"
-	 channels ["#()"]} :as botmap}]
+  [#^IRC {:keys [name password server username port realname fnmap server port] :as botmap}
+   & {channels :channels}]
   (let [sock (Socket. server port)
-	sockout (PrintWriter. (.getOutputStream sock) true)
+	sockout (PrintWriter. (output-stream sock) true)
 	sockin (reader (input-stream sock))]
     (doto sockout
       (.println (str "NICK " name))
@@ -57,11 +63,10 @@
 				 (= (second words) "001") (doseq [channel channels] 
 							    (.println sockout (str "JOIN " channel))))
 				:else (handle (mess-to-map words) fnmap))))))
-    (merge botmap {:sock sock :sockin sockin :sockout sockout})))
+    (assoc botmap :sock sock :sockin sockin :sockout sockout)))
 
 
-(def bot {:name "ircljbot" :server "irc.freenode.net"})
-
-(def newbot (connect bot))
+(def bot (create-bot {:name "ircljbot" :server "irc.freenode.net"}))
+(def newbot (connect bot :channels ["#()"]))
 (read-line)
 (close newbot)
