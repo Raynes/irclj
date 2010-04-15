@@ -1,8 +1,8 @@
 (ns   
-    #^{:author "Anthony Simpson (Rayne)",
+    #^{:author "Anthony Simpson (Rayne)"
        :doc "A small IRC library to abstract over lower-level IRC connection handling."} 
     irclj.irclj
-    (:use [clojure.contrib io [string :only [join]]])
+    (:use [clojure.contrib io [string :only [join]] [def :only [defmacro-]]])
     (:import [java.io PrintStream PrintWriter BufferedReader InputStreamReader]
 	     java.net.Socket))
 
@@ -22,24 +22,24 @@
   target."
   [type irc target message]
   (let [{{sockout :sockout} :connection} @irc]
-    (.println sockout (str type " " target " :" message)))
-  (println (str ">>>" type " " target " :" message)))
+    (.println sockout (str type " " target " " message)))
+  (println (str ">>>" type " " target " " message)))
 
 (defn send-message
   "Takes an IRC, a message and a target to send it to, and sends an IRC message to
   target."
   [irc target message]
-  (send-msg "PRIVMSG" irc target message))
+  (send-msg "PRIVMSG" irc target (str ":" message)))
 
 (defn send-notice
   "Takes an IRC, a message, and a target to send to, and sends a NOTICE to target"
   [irc target message]
-  (send-msg "NOTICE" irc target message))
+  (send-msg "NOTICE" irc target (str ":" message)))
 
 (defn send-action
   "Sends a CTCP ACTION to a target"
   [irc target message]
-  (send-msg "PRIVMSG" irc target (str \ "ACTION" " " message \)))
+  (send-msg "PRIVMSG" irc target (str ":" \ "ACTION" " " message \)))
 
 (defn set-nick
   "Changes the connectors nick."
@@ -47,10 +47,15 @@
   (send-msg "NICK" irc nick nil)
   (dosync (alter irc assoc :name nick)))
 
-(defn extract-message [s]
+(defn set-mode
+  "Set modes."
+  [irc channel mode nick]
+  (send-msg "MODE" irc channel (str mode " " nick)))
+
+(defn- extract-message [s]
   (apply str (rest (join " " s))))
 
-(defn mess-to-map
+(defn- mess-to-map
   "Parses a message into a map."
   [[user doing & [channel & message :as more]]]
   (let [[nick ident hostmask] (.split user "\\!|\\@")
@@ -69,7 +74,9 @@
 	     "MODE" (let [[mode user] message] {:channel channel :mode mode :user user })
 	     {}))))
 
-(defmacro when-not-nil [pred & body]
+(defmacro- when-not-nil 
+  "Like when-not, but checks if it's predicate is nil."
+  [pred & body]
   `(when-not (nil? ~pred) ~@body))
 
 (defn handle-ctcp
@@ -82,7 +89,9 @@
 	      "FINGER"  "OMG, DADDY TOUCHED ME IN THE BAD PLACE.!"
 	      "Not supported.")))
 
-(defn handle [{:keys [user nick ident doing channel message reason target mode] :as info} irc]
+(defn- handle 
+  "Handles various IRC things. This is important."
+  [{:keys [user nick ident doing channel message reason target mode] :as info} irc]
   (let [{{:keys [on-message on-quit on-part on-join on-notice on-mode]} :fnmap} @irc
 	info-map (assoc info :irc irc)]
     (condp = doing
