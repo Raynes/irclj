@@ -8,13 +8,24 @@
 
 (defrecord IRC [name password server username port realname fnmap])
 
-(defn create-bot [{:keys [name password server username port realname fnmap]
-		   :or {name "irclj" username "irclj" realname "teh bawt"
-			port 6667}}]
+(defn create-bot 
+  "Function to create an IRC(bot). You need to at most supply a server and fnmap.
+  If you don't supply a name, username, realname, or port, they will default to
+  irclj, irclj, teh bawt, and 6667 respectively."
+  [{:keys [name password server username port realname fnmap]
+    :or {name "irclj" username "irclj" realname "teh bawt"
+	 port 6667}}]
   (IRC. name password server username port realname fnmap))
 
+(defn send-message 
+  "Takes an IRC, a message and a target to send it to, and sends an IRC message to
+  target."
+  [{{sockout :sockout} :connection} target message]
+  (.println sockout (str "PRIVMSG " target " :" message))
+  (println (str ">>>PRIVMSG " target " :" message)))
+
 (defn mess-to-map
-  ""
+  "Parses a message into a map."
   [[user doing & more]]
   (let [[nick ident hostmask] (.split user "\\!|\\@")
 	message-map {:user user
@@ -34,15 +45,18 @@
 (defn handle [& more])
 
 (defn close
-  "Closes an IRC connection."
-  [{:keys [sock sockin sockout]}]
+  "Closes an IRC connection (including the socket)."
+  [{{:keys [sock sockout sockin]} :connection}]
   (.println sockout "QUIT")
   (.close sock)
   (.close sockin)
   (.close sockout))
 
 (defn connect
-  ""
+  "Takes an IRC defrecord and optionally, a sequence of channels to join and
+  connects to IRC based on the information provided in the IRC and optionally joins
+  the channels. The connection itself runs in a separate thread, and the input stream
+  and output stream are merged into the IRC and returned."
   [#^IRC {:keys [name password server username port realname fnmap server port] :as botmap}
    & {channels :channels}]
   (let [sock (Socket. server port)
@@ -63,10 +77,11 @@
 				 (= (second words) "001") (doseq [channel channels] 
 							    (.println sockout (str "JOIN " channel))))
 				:else (handle (mess-to-map words) fnmap))))))
-    (assoc botmap :sock sock :sockin sockin :sockout sockout)))
+    (assoc botmap :connection {:sock sock :sockin sockin :sockout sockout})))
 
 
 (def bot (create-bot {:name "ircljbot" :server "irc.freenode.net"}))
-(def newbot (connect bot :channels ["#()"]))
+(def newbot (connect bot :channels ["#irclj"]))
+(send-message newbot "#irclj" (read-line))
 (read-line)
 (close newbot)
