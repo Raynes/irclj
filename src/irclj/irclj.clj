@@ -36,6 +36,11 @@
   [irc target message]
   (send-msg "NOTICE" irc target message))
 
+(defn send-action
+  "Sends a CTCP ACTION to a target"
+  [irc target message]
+  (send-msg "PRIVMSG" irc target (str \ "ACTION" " " message \)))
+
 (defn extract-message [s]
   (apply str (rest (join " " s))))
 
@@ -55,20 +60,28 @@
 	     "JOIN" {:channel (apply str (rest more))}
 	     "PART" {:channel channel :reason (extract-message message)}
 	     "NOTICE" {:target channel :message (extract-message message)}
-	     "MODE" {:channel (first more) :mode (second more) :user (last more)}
+	     "MODE" (let [[mode user] message] {:channel channel :mode mode :user user })
 	     {}))))
 
 (defmacro when-not-nil [pred & body]
   `(when-not (nil? ~pred) ~@body))
 
-;insert handle-ctcp here
+(defn handle-ctcp
+  "Takes a CTCP message and responds to it."
+  [irc nick ctcp-s]
+  (send-notice 
+   irc nick (condp = (apply str (remove #(= \ %) ctcp-s))
+	      "VERSION" "irclj version ohai"
+	      "TIME"    "Time for you to SHUT THE FUCK UP."
+	      "FINGER"  "OMG, DADDY TOUCHED ME IN THE BAD PLACE.!"
+	      "Not supported.")))
 
 (defn handle [{:keys [user nick ident doing channel message reason target mode] :as info} irc]
   (let [{{:keys [on-message on-quit on-part on-join on-notice on-mode]} :fnmap} @irc
 	info-map (assoc info :irc irc)]
     (condp = doing
       "PRIVMSG" (if (= (first message) \)
-		  (handle-ctcp nick message)
+		  (handle-ctcp irc nick message)
 		  (when-not-nil on-message (on-message 
 					    (if (= channel (:name @irc)) 
 					      (assoc info-map :channel nick) 
@@ -118,7 +131,11 @@
     irc))
 
 (def fnmap {:on-message (fn [{:keys [nick channel message irc]}] 
-			  (send-message irc channel message))})
+			  (send-action irc channel message))
+	    :on-quit (fn [{:keys [nick reason irc]}] 
+		       (send-message irc "#irclj" (str nick " quit. His reason was: " reason)))
+	    :on-part (fn [{:keys [nick reason channel irc]}]
+		       (send-message irc channel (str nick " parted. Reason: " reason)))})
 
 (def bot (create-bot {:name "ircljbot" :server "irc.freenode.net" :fnmap fnmap}))
 (def newbot (connect bot :channels ["#irclj"]))
