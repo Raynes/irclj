@@ -55,6 +55,10 @@
   [irc channel]
   (send-msg "PART" irc "" channel))
 
+(defn get-users
+  [irc channel]
+  (send-msg "NAMES" irc "" channel))
+
 (defn set-mode
   "Set modes."
   [irc channel mode nick]
@@ -79,7 +83,7 @@
 	     "JOIN" {:channel (apply str (rest more))}
 	     "PART" {:channel channel :reason (extract-message message)}
 	     "NOTICE" {:target channel :message (extract-message message)}
-	     "MODE" (let [[mode user] message] {:channel channel :mode mode :user user })
+	     "MODE" (let [[mode user] message] {:channel channel :mode mode :user user})
 	     {}))))
 
 (defmacro- when-not-nil 
@@ -125,6 +129,26 @@
     (.close sockin)
     (.close sockout)))
 
+(defn get-irc-line
+  [sockin]
+  (try (.readLine sockin)
+       (catch java.net.SocketException _ "Socket Closed.")))
+
+(defn strip-start 
+  [s]
+  (second (.split s ":")))
+
+(defn get-names
+  [irc channel]
+  (send-msg "NAMES" irc "" channel)
+  (loop [acc []]
+    (let [rline (apply str (rest (get-irc-line (:sockin (:connection @irc)))))
+	  words (.split rline " ")]
+      (println (str ":" rline))
+      (if (= (second words) "353") 
+	(recur (conj acc (strip-start rline))) 
+	(.split (apply str (interpose " " acc))) " "))))
+
 (defn connect
   "Takes an IRC defrecord and optionally, a sequence of channels to join and
   connects to IRC based on the information provided in the IRC and optionally joins
@@ -141,8 +165,7 @@
       (.println (str "USER " username " na na :" realname)))
     (.start (Thread. (fn []
 		       (while (not (.isClosed sock))
-			      (let [rline (try (.readLine sockin) 
-					       (catch java.net.SocketException _ "Socket Closed."))
+			      (let [rline (get-irc-line sockin)
 				    line (apply str (rest rline))
 				    words (.split line " ")]
 				(println rline)

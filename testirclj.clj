@@ -8,6 +8,7 @@
 			      "$setmode" (set-mode irc channel (first more) (second more))
 			      "$join" (join-chan irc (first more))
 			      "$part" (part-chan irc (first more))
+			      "$names" (get-names irc (first more))
 			      nil)))
 	    :on-quit (fn [{:keys [nick reason irc]}] 
 		       (send-message irc "#irclj" (str nick " quit. His reason was: " reason)))
