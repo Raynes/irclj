@@ -147,7 +147,7 @@
       (println (str ":" rline))
       (if (= (second words) "353") 
 	(recur (conj acc (strip-start rline))) 
-	(.split (apply str (interpose " " acc))) " "))))
+	(.split (apply str (interpose " " acc)) " ")))))
 
 (defn connect
   "Takes an IRC defrecord and optionally, a sequence of channels to join and
