@@ -101,7 +101,7 @@
   [pred & body]
   `(when-not (nil? ~pred) ~@body))
 
-(defn handle-ctcp
+(defn- handle-ctcp
   "Takes a CTCP message and responds to it."
   [irc nick ctcp-s]
   (let [ctcp (apply str (remove #(= \ %) ctcp-s))]
