@@ -95,7 +95,7 @@
   "Takes a CTCP message and responds to it."
   [irc nick ctcp-s]
   (let [ctcp (apply str (remove #(= \ %) ctcp-s))]
-    (when-not (= ctcp "ACTION")
+    (when-not (= (first (.split ctcp " ")) "ACTION")
       (send-notice 
        irc nick (condp = ctcp
 		  "VERSION" "irclj version ohai"
