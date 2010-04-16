@@ -4,5 +4,6 @@
                  [org.clojure/clojure-contrib "1.2.0-SNAPSHOT"]]
   :dev-dependencies [[swank-clojure "1.1.0"]
 		     [leiningen/lein-swank "1.1.0"]
+		     [autodoc "0.7.0"]
 		     [lein-search "0.3.0-SNAPSHOT"]
 		     [lein-clojars "0.5.0"]])

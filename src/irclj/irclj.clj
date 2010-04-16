@@ -64,6 +64,16 @@
   [irc channel mode nick]
   (send-msg "MODE" irc channel (str mode " " nick)))
 
+(defn set-topic
+  "Sets the topic for a channel."
+  [irc channel topic]
+  (send-msg "TOPIC" irc channel (str ":" topic)))
+
+(defn kick
+  "Kicks a user from a channel."
+  [irc channel nick reason]
+  (send-msg "KICK" irc channel (str nick " :" reason)))
+
 (defn- extract-message [s]
   (apply str (rest (join " " s))))
 
@@ -131,16 +141,19 @@
     (.close sockin)
     (.close sockout)))
 
-(defn get-irc-line
+(defn- get-irc-line
+  "Reads a line from IRC. Returns the string 'Socket Closed.' if the socket provided is closed."
   [sockin]
   (try (.readLine sockin)
        (catch java.net.SocketException _ "Socket Closed.")))
 
-(defn strip-start 
+(defn- strip-start
+  "Strips everything away until the message."
   [s]
   (second (.split s ":")))
 
 (defn get-names
+  "Gets a list of the users in a channel. Includes modes."
   [irc channel]
   (send-msg "NAMES" irc "" channel)
   (loop [acc []]
