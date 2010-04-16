@@ -94,12 +94,14 @@
 (defn handle-ctcp
   "Takes a CTCP message and responds to it."
   [irc nick ctcp-s]
-  (send-notice 
-   irc nick (condp = (apply str (remove #(= \ %) ctcp-s))
-	      "VERSION" "irclj version ohai"
-	      "TIME"    "Time for you to SHUT THE FUCK UP."
-	      "FINGER"  "OMG, DADDY TOUCHED ME IN THE BAD PLACE.!"
-	      "Not supported.")))
+  (let [ctcp (apply str (remove #(= \ %) ctcp-s))]
+    (when-not (= ctcp "ACTION")
+      (send-notice 
+       irc nick (condp = ctcp
+		  "VERSION" "irclj version ohai"
+		  "TIME"    "Time for you to SHUT THE FUCK UP."
+		  "FINGER"  "OMG, DADDY TOUCHED ME IN THE BAD PLACE.!"
+		  "Not supported.")))))
 
 (defn- handle 
   "Handles various IRC things. This is important."
