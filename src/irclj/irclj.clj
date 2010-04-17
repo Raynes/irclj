@@ -93,7 +93,10 @@
 	     "JOIN" {:channel (apply str (rest more))}
 	     "PART" {:channel channel :reason (extract-message message)}
 	     "NOTICE" {:target channel :message (extract-message message)}
-	     "MODE" (let [[mode user] message] {:channel channel :mode mode :user user})
+	     "MODE" (let [[mode target] message] {:channel channel :mode mode :target target})
+	     "TOPIC" {:channel channel :topic (extract-message message)}
+	     "KICK" (let [[target & message] message] 
+		      {:channel channel :target target :message (extract-message message message)})
 	     {}))))
 
 (defmacro- when-not-nil 

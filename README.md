@@ -16,6 +16,8 @@ The fnmap can contain 0 or more functions. The functions need to be named specif
     PART ; on-part
     NOTICE ; on-notice
     MODE ; on-mode
+    KICK ; on-kick
+    TOPIC ; on-topic
 
 You can supply none or as many (if you don't want to be useful ;)) of these as you like. If you define an on-message function in fnmap, and the irc connection/bot sees a PRIVMSG, that function will be called. Each function, when called, is passed a map. They supply different things in the map depending on what function was called. There are certain things that are always in the map regardless of what is called. These are:
 
@@ -36,6 +38,8 @@ And here are action specific map keys that are put in the map along with the key
     PART ; :channel, :reason
     NOTICE ; :target, :message
     MODE ; :channel, :mode, :user
+    KICK ; :channel, :target, :message
+    TOPIC ; :channel, :topic
 
 All of this information is sent in a single map that you can destructure in the functions in fn map. Simple, right? Well, I suck at explaining things, but looking at the example(s) in the /examples directory should help. You can also look at the bot that this library was originally created for, [sexpbot](http://github.com/Raynes/sexpbot). If you have any questions, you can find me on freenode, at #clojure, #clojure-casual, and #(). If you have any questions or suggestions, feel free to hit me up with them.
 
