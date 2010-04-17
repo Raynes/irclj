@@ -17,6 +17,17 @@
 	 port 6667}}]
   (IRC. name password server username port realname fnmap))
 
+(defn- get-irc-line
+  "Reads a line from IRC. Returns the string 'Socket Closed.' if the socket provided is closed."
+  [sockin]
+  (try (.readLine sockin)
+       (catch java.net.SocketException _ "Socket Closed.")))
+
+(defn- strip-start
+  "Strips everything away until the message."
+  [s]
+  (second (.split s ":")))
+
 (defn- send-msg
   "Takes an IRC, a message and a target to send it to, and sends an IRC message to
   target."
@@ -48,16 +59,20 @@
   (dosync (alter irc assoc :name nick)))
 
 (defn join-chan
+  "Joins a channel."
   [irc channel]
-  (send-msg "JOIN" irc "" (str ":" channel)))
+  (send-msg "JOIN" irc "" (str ":" channel))
+  (let [rline (apply str (rest (get-irc-line (:sockin (:connection @irc)))))
+	words (.split rline " ")]
+    (println (str ":" rline))
+    (when-not (= (second words) "403")
+      (dosync (alter irc assoc :channels (conj (:channels @irc) channel))))))
 
 (defn part-chan
-  [irc channel]
-  (send-msg "PART" irc "" channel))
-
-(defn get-users
-  [irc channel]
-  (send-msg "NAMES" irc "" channel))
+  "Leaves a channel."
+  [irc channel reason]
+  (send-msg "PART" irc "" channel)
+  (dosync (alter irc assoc :channels (remove #(= % channel) (:channels @irc)))))
 
 (defn set-mode
   "Set modes."
@@ -73,6 +88,24 @@
   "Kicks a user from a channel."
   [irc channel nick reason]
   (send-msg "KICK" irc channel (str nick " :" reason)))
+
+(defn- get-users
+  "Send's a NAMES request to the server for the channel. Doesn't return anything. 
+  Use get-names if you want a real list of names."
+  [irc channel]
+  (send-msg "NAMES" irc "" channel))
+
+(defn get-names
+  "Gets a list of the users in a channel. Includes modes."
+  [irc channel]
+  (send-msg "NAMES" irc "" channel)
+  (loop [acc []]
+    (let [rline (apply str (rest (get-irc-line (:sockin (:connection @irc)))))
+	  words (.split rline " ")]
+      (println (str ":" rline))
+      (if (= (second words) "353") 
+	(recur (conj acc (strip-start rline))) 
+	(.split (apply str (interpose " " acc)) " ")))))
 
 (defn- extract-message [s]
   (apply str (rest (join " " s))))
@@ -119,7 +152,7 @@
 (defn- handle 
   "Handles various IRC things. This is important."
   [{:keys [user nick ident doing channel message reason target mode] :as info} irc]
-  (let [{{:keys [on-message on-quit on-part on-join on-notice on-mode]} :fnmap} @irc
+  (let [{{:keys [on-message on-quit on-part on-join on-notice on-mode on-topic on-kick]} :fnmap} @irc
 	info-map (assoc info :irc irc)]
     (condp = doing
       "PRIVMSG" (if (= (first message) \)
@@ -146,29 +179,6 @@
     (.close sockin)
     (.close sockout)))
 
-(defn- get-irc-line
-  "Reads a line from IRC. Returns the string 'Socket Closed.' if the socket provided is closed."
-  [sockin]
-  (try (.readLine sockin)
-       (catch java.net.SocketException _ "Socket Closed.")))
-
-(defn- strip-start
-  "Strips everything away until the message."
-  [s]
-  (second (.split s ":")))
-
-(defn get-names
-  "Gets a list of the users in a channel. Includes modes."
-  [irc channel]
-  (send-msg "NAMES" irc "" channel)
-  (loop [acc []]
-    (let [rline (apply str (rest (get-irc-line (:sockin (:connection @irc)))))
-	  words (.split rline " ")]
-      (println (str ":" rline))
-      (if (= (second words) "353") 
-	(recur (conj acc (strip-start rline))) 
-	(.split (apply str (interpose " " acc)) " ")))))
-
 (defn connect
   "Takes an IRC defrecord and optionally, a sequence of channels to join and
   connects to IRC based on the information provided in the IRC and optionally joins
@@ -192,6 +202,6 @@
 				(cond
 				 (.startsWith rline "PING") (.println sockout (.replace rline "PING" "PONG"))
 				 (= (second words) "001") (doseq [channel channels] 
-							    (.println sockout (str "JOIN " channel))))
+							    (join-chan irc channel)))
 				:else (handle (mess-to-map words) irc))))))
     irc))

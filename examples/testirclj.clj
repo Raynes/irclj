@@ -9,13 +9,14 @@
 			      "$join" (join-chan irc (first more))
 			      "$part" (part-chan irc (first more))
 			      "$names" (get-names irc (first more))
+			      "$channels" (send-message irc channel (apply str (interpose " " (:channels @irc))))
 			      nil)))
 	    :on-quit (fn [{:keys [nick reason irc]}] 
 		       (send-message irc "#irclj" (str nick " quit. His reason was: " reason)))
 	    :on-part (fn [{:keys [nick reason channel irc]}]
 		       (send-message irc channel (str nick " parted. Reason: " reason)))})
 
-(def bot (create-bot {:name "ircljbot" :server "irc.freenode.net" :fnmap fnmap}))
-(def newbot (connect bot :channels ["#()" "#irclj"]))
+(def bot (connect (create-irc {:name "ircljbot" :server "irc.freenode.net" :fnmap fnmap}) 
+		  :channels ["#()" "#irclj"]))
 (read-line)
-(close newbot)
+(close bot)
