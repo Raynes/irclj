@@ -133,6 +133,8 @@
       "PART" (when-not-nil on-part (on-part info-map))
       "NOTICE" (when-not-nil on-notice (on-notice info-map))
       "MODE" (when-not-nil on-mode (on-mode info-map))
+      "TOPIC" (when-not-nil on-topic (on-topic info-map))
+      "KICK" (when-not-nil on-kick (on-kick info-map))
       nil)))
 
 (defn close
