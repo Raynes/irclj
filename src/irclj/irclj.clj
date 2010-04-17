@@ -8,7 +8,7 @@
 
 (defrecord IRC [name password server username port realname fnmap])
 
-(defn create-bot 
+(defn create-irc 
   "Function to create an IRC(bot). You need to at most supply a server and fnmap.
   If you don't supply a name, username, realname, or port, they will default to
   irclj, irclj, teh bawt, and 6667 respectively."
