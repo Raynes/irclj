@@ -52,13 +52,15 @@ namespace.
     </div><div style="margin-left: 1em;" class="toc-entry">
       <a href="#irclj.irclj/connect">connect</a>
     </div><div style="margin-left: 1em;" class="toc-entry">
-      <a href="#irclj.irclj/create-bot">create-bot</a>
+      <a href="#irclj.irclj/create-irc">create-irc</a>
     </div><div style="margin-left: 1em;" class="toc-entry">
       <a href="#irclj.irclj/get-names">get-names</a>
     </div><div style="margin-left: 1em;" class="toc-entry">
-      <a href="#irclj.irclj/handle-ctcp">handle-ctcp</a>
+      <a href="#irclj.irclj/join-chan">join-chan</a>
     </div><div style="margin-left: 1em;" class="toc-entry">
       <a href="#irclj.irclj/kick">kick</a>
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a href="#irclj.irclj/part-chan">part-chan</a>
     </div><div style="margin-left: 1em;" class="toc-entry">
       <a href="#irclj.irclj/send-action">send-action</a>
     </div><div style="margin-left: 1em;" class="toc-entry">
@@ -111,9 +113,9 @@ and output stream are merged into the IRC and returned as a ref.</pre>
 </div><div id="var-entry">
   <br />
   <hr />
-  <h2 id="irclj.irclj/create-bot">create-bot</h2>
+  <h2 id="irclj.irclj/create-irc">create-irc</h2>
   <span id="var-type">function</span><br />
-  <pre id="var-usage">Usage: (create-bot {:keys [name password server username port realname fnmap], :or {name irclj, username irclj, realname teh bawt, port 6667}})
+  <pre id="var-usage">Usage: (create-irc {:keys [name password server username port realname fnmap], :or {name irclj, username irclj, realname teh bawt, port 6667}})
 </pre>
   <pre id="var-docstr">Function to create an IRC(bot). You need to at most supply a server and fnmap.
 If you don't supply a name, username, realname, or port, they will default to
@@ -131,11 +133,11 @@ irclj, irclj, teh bawt, and 6667 respectively.</pre>
 </div><div id="var-entry">
   <br />
   <hr />
-  <h2 id="irclj.irclj/handle-ctcp">handle-ctcp</h2>
+  <h2 id="irclj.irclj/join-chan">join-chan</h2>
   <span id="var-type">function</span><br />
-  <pre id="var-usage">Usage: (handle-ctcp irc nick ctcp-s)
+  <pre id="var-usage">Usage: (join-chan irc channel)
 </pre>
-  <pre id="var-docstr">Takes a CTCP message and responds to it.</pre>
+  <pre id="var-docstr">Joins a channel.</pre>
   
 </div><div id="var-entry">
   <br />
@@ -145,6 +147,15 @@ irclj, irclj, teh bawt, and 6667 respectively.</pre>
   <pre id="var-usage">Usage: (kick irc channel nick reason)
 </pre>
   <pre id="var-docstr">Kicks a user from a channel.</pre>
+  
+</div><div id="var-entry">
+  <br />
+  <hr />
+  <h2 id="irclj.irclj/part-chan">part-chan</h2>
+  <span id="var-type">function</span><br />
+  <pre id="var-usage">Usage: (part-chan irc channel reason)
+</pre>
+  <pre id="var-docstr">Leaves a channel.</pre>
   
 </div><div id="var-entry">
   <br />
