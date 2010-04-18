@@ -13,6 +13,9 @@
 			      "!whois" (println (whois irc (first more)))
 			      "!topic?" (doseq [x (vals (get-topic irc (first more)))] (println x))
 			      nil)))
+
+	    :on-join (fn [{:keys [irc channel]}]
+		       (send-message irc channel channel))
 	    :on-quit (fn [{:keys [nick reason irc]}] 
 		       (send-message irc "#irclj" (str nick " quit. His reason was: " reason)))
 	    :on-part (fn [{:keys [nick reason channel irc]}]

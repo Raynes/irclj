@@ -156,7 +156,7 @@
 	   (condp = doing
 	     "PRIVMSG" {:channel channel :message (extract-message message)}
 	     "QUIT" {:reason (extract-message more)}
-	     "JOIN" {:channel (apply str (rest more))}
+	     "JOIN" {:channel (apply str (rest channel))}
 	     "PART" {:channel channel :reason (extract-message message)}
 	     "NOTICE" {:target channel :message (extract-message message)}
 	     "MODE" (let [[mode target] message] {:channel channel :mode mode :target target})
