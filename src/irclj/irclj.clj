@@ -17,10 +17,12 @@
 	 port 6667}}]
   (IRC. name password server username port realname fnmap))
 
-(defn- get-irc-line
+(defn get-irc-line
   "Reads a line from IRC. Returns the string 'Socket Closed.' if the socket provided is closed."
-  [sockin]
-  (try (.readLine sockin)
+  [irc]
+  (try (let [line (.readLine (:sockin (:connection @irc)))]
+	 (println line)
+	 line)
        (catch java.net.SocketException _ "Socket Closed.")))
 
 (defn- strip-start
@@ -62,7 +64,7 @@
   "Joins a channel."
   [irc channel]
   (send-msg "JOIN" irc "" (str ":" channel))
-  (let [rline (apply str (rest (get-irc-line (:sockin (:connection @irc)))))
+  (let [rline (apply str (rest (get-irc-line irc)))
 	words (.split rline " ")]
     (println (str ":" rline))
     (when-not (= (second words) "403")
@@ -89,23 +91,43 @@
   [irc channel nick reason]
   (send-msg "KICK" irc channel (str nick " :" reason)))
 
-(defn- get-users
-  "Send's a NAMES request to the server for the channel. Doesn't return anything. 
-  Use get-names if you want a real list of names."
-  [irc channel]
-  (send-msg "NAMES" irc "" channel))
-
 (defn get-names
   "Gets a list of the users in a channel. Includes modes."
   [irc channel]
   (send-msg "NAMES" irc "" channel)
   (loop [acc []]
-    (let [rline (apply str (rest (get-irc-line (:sockin (:connection @irc)))))
-	  words (.split rline " ")]
-      (println (str ":" rline))
-      (if (= (second words) "353") 
-	(recur (conj acc (strip-start rline))) 
-	(.split (apply str (interpose " " acc)) " ")))))
+    (let [rline (apply str (rest (get-irc-line irc)))
+	  words (.split rline " ")
+	  num (second words)]
+      (when-not (= num "403")
+	(if (= num "353") 
+	  (recur (conj acc (strip-start rline))) 
+	  (.split (apply str (interpose " " acc)) " "))))))
+
+(defn get-topic
+  "Gets the topic of a channel."
+  [irc channel]
+  (send-msg "TOPIC" irc "" channel)
+  (let [rline (apply str (rest (get-irc-line irc)))
+	words (.split rline " ")]
+    (when (= (second words) "332")
+      (let [rline2 (.split (get-irc-line irc) " ")]
+	{:topic (apply str (rest (drop-while #(not= % \:) rline)))
+	 :set-by (last (butlast rline2))
+	 :date (last rline2)}))))
+
+(defn whois
+  "Sends a whois request and returns the contents."
+  [irc nick]
+  (send-msg "WHOIS" irc "" nick)
+  (loop [acc []]
+    (let [rline (apply str (rest (get-irc-line irc)))
+	  words (.split rline " ")
+	  num (second words)]
+      (when-not (= num "401")
+	(if-not (= num "318")
+	  (recur (->> words (drop 4) (interpose " ") (apply str) (conj acc)))
+	  (zipmap [:user :channels :server :loggedinas] acc))))))
 
 (defn- extract-message [s]
   (apply str (rest (join " " s))))
@@ -195,12 +217,12 @@
       (.println (str "USER " username " na na :" realname)))
     (.start (Thread. (fn []
 		       (while (not (.isClosed sock))
-			      (let [rline (get-irc-line sockin)
+			      (let [rline (get-irc-line irc)
 				    line (apply str (rest rline))
 				    words (.split line " ")]
-				(println rline)
 				(cond
-				 (.startsWith rline "PING") (.println sockout (.replace rline "PING" "PONG"))
+				 (.startsWith rline "PING") (do (.println sockout (.replace rline "PING" "PONG"))
+								(println ">>>PONG"))
 				 (= (second words) "001") (doseq [channel channels] 
 							    (join-chan irc channel)))
 				:else (handle (mess-to-map words) irc))))))
