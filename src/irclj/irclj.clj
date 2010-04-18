@@ -30,9 +30,15 @@
   [s]
   (second (.split s ":")))
 
-(defn- send-msg
-  "Takes an IRC, a message and a target to send it to, and sends an IRC message to
-  target."
+(defn send-msg
+  "Takes a 'type' of message to send, such as PRIVMSG, the IRC record you want to use,
+  a target (user, channel, et al) to send it to, and a message. In trying to be general
+  enough to be used by the other IRC functions to send different IRC requests, this function
+  will not insert a : before the message you send, so if you're sending something that
+  requires that, remember to put : before it. Also, this function should only be used
+  to handle stuff that isn't already handled by other functions. This is a utility
+  function. If you want to send a message or a notice or something, use send-message
+  and friends. Don't use this unless what you're trying to do isn't already done."
   [type irc target message]
   (let [{{sockout :sockout} :connection} @irc]
     (.println sockout (str type " " target " " message)))
@@ -40,22 +46,23 @@
 
 (defn send-message
   "Takes an IRC, a message and a target to send it to, and sends an IRC message to
-  target."
+  target (user, channel)."
   [irc target message]
   (send-msg "PRIVMSG" irc target (str ":" message)))
 
 (defn send-notice
-  "Takes an IRC, a message, and a target to send to, and sends a NOTICE to target"
+  "Takes an IRC, a message, and a target to send to, and sends a NOTICE to target
+  (user, channel)."
   [irc target message]
   (send-msg "NOTICE" irc target (str ":" message)))
 
 (defn send-action
-  "Sends a CTCP ACTION to a target"
+  "Sends a CTCP ACTION to a target (user, channel)"
   [irc target message]
   (send-msg "PRIVMSG" irc target (str ":" \ "ACTION" " " message \)))
 
 (defn set-nick
-  "Changes the connectors nick."
+  "Changes your nick."
   [irc nick]
   (send-msg "NICK" irc nick nil)
   (dosync (alter irc assoc :name nick)))
@@ -92,7 +99,8 @@
   (send-msg "KICK" irc channel (str nick " :" reason)))
 
 (defn get-names
-  "Gets a list of the users in a channel. Includes modes."
+  "Gets a list of the users in a channel. Includes modes. Returns nil if the channel
+  doesn't exist."
   [irc channel]
   (send-msg "NAMES" irc "" channel)
   (loop [acc []]
@@ -105,7 +113,8 @@
 	  (.split (apply str (interpose " " acc)) " "))))))
 
 (defn get-topic
-  "Gets the topic of a channel."
+  "Gets the topic of a channel. Returns a map of :topic, :set-by, and :date
+  (haven't quite worked date out yet). If the channel doesn't exist, returns nil."
   [irc channel]
   (send-msg "TOPIC" irc "" channel)
   (let [rline (apply str (rest (get-irc-line irc)))
@@ -117,7 +126,9 @@
 	 :date (last rline2)}))))
 
 (defn whois
-  "Sends a whois request and returns the contents."
+  "Sends a whois request and returns a map with the contents mapped to keys.
+  Keys are: :loggedinas, :user, :channels, and :server. Returns nil if user
+  doesn't exist."
   [irc nick]
   (send-msg "WHOIS" irc "" nick)
   (loop [acc []]
