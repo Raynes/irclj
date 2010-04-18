@@ -102,7 +102,7 @@ Shortcuts:<br />
   <pre>
 <span id="section-content"> <a href="irclj.irclj-api.html#irclj.irclj/get-irc-line">get-irc-line</a><span id="line-content">                 function      irclj.irclj        Reads a line from IRC. Returns the string 'Socket ...
 </span></span><span id="section-content"> <a href="irclj.irclj-api.html#irclj.irclj/get-names">get-names</a><span id="line-content">                    function      irclj.irclj        Gets a list of the users in a channel. Includes mo...
-</span></span><span id="section-content"> <a href="irclj.irclj-api.html#irclj.irclj/get-topic">get-topic</a><span id="line-content">                    function      irclj.irclj        Gets the topic of a channel..
+</span></span><span id="section-content"> <a href="irclj.irclj-api.html#irclj.irclj/get-topic">get-topic</a><span id="line-content">                    function      irclj.irclj        Gets the topic of a channel. Returns a map of :top...
 </span></span></pre>
 </div><div id="index-body">
   <h2 id="H"><span id="section-head">H</span></h2>
@@ -154,11 +154,12 @@ Shortcuts:<br />
 </div><div id="index-body">
   <h2 id="S"><span id="section-head">S</span></h2>
   <pre>
-<span id="section-content"> <a href="irclj.irclj-api.html#irclj.irclj/send-action">send-action</a><span id="line-content">                  function      irclj.irclj        Sends a CTCP ACTION to a target.
+<span id="section-content"> <a href="irclj.irclj-api.html#irclj.irclj/send-action">send-action</a><span id="line-content">                  function      irclj.irclj        Sends a CTCP ACTION to a target (user, channel).
 </span></span><span id="section-content"> <a href="irclj.irclj-api.html#irclj.irclj/send-message">send-message</a><span id="line-content">                 function      irclj.irclj        Takes an IRC, a message and a target to send it to...
+</span></span><span id="section-content"> <a href="irclj.irclj-api.html#irclj.irclj/send-msg">send-msg</a><span id="line-content">                     function      irclj.irclj        Takes a 'type' of message to send, such as PRIVMSG...
 </span></span><span id="section-content"> <a href="irclj.irclj-api.html#irclj.irclj/send-notice">send-notice</a><span id="line-content">                  function      irclj.irclj        Takes an IRC, a message, and a target to send to, ...
 </span></span><span id="section-content"> <a href="irclj.irclj-api.html#irclj.irclj/set-mode">set-mode</a><span id="line-content">                     function      irclj.irclj        Set modes..
-</span></span><span id="section-content"> <a href="irclj.irclj-api.html#irclj.irclj/set-nick">set-nick</a><span id="line-content">                     function      irclj.irclj        Changes the connectors nick..
+</span></span><span id="section-content"> <a href="irclj.irclj-api.html#irclj.irclj/set-nick">set-nick</a><span id="line-content">                     function      irclj.irclj        Changes your nick..
 </span></span><span id="section-content"> <a href="irclj.irclj-api.html#irclj.irclj/set-topic">set-topic</a><span id="line-content">                    function      irclj.irclj        Sets the topic for a channel..
 </span></span></pre>
 </div><div id="index-body">
@@ -176,7 +177,7 @@ Shortcuts:<br />
 </div><div id="index-body">
   <h2 id="W"><span id="section-head">W</span></h2>
   <pre>
-<span id="section-content"> <a href="irclj.irclj-api.html#irclj.irclj/whois">whois</a><span id="line-content">                        function      irclj.irclj        Sends a whois request and returns the contents..
+<span id="section-content"> <a href="irclj.irclj-api.html#irclj.irclj/whois">whois</a><span id="line-content">                        function      irclj.irclj        Sends a whois request and returns a map with the c...
 </span></span></pre>
 </div><div id="index-body">
   <h2 id="X"><span id="section-head">X</span></h2>
