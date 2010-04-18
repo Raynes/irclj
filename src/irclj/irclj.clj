@@ -79,7 +79,7 @@
 
 (defn part-chan
   "Leaves a channel."
-  [irc channel reason]
+  [irc channel & {reason :reason}]
   (send-msg "PART" irc "" channel)
   (dosync (alter irc assoc :channels (remove #(= % channel) (:channels @irc)))))
 
@@ -95,7 +95,7 @@
 
 (defn kick
   "Kicks a user from a channel."
-  [irc channel nick reason]
+  [irc channel nick & {reason reason}]
   (send-msg "KICK" irc channel (str nick " :" reason)))
 
 (defn get-names
