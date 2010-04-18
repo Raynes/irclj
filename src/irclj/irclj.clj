@@ -95,7 +95,7 @@
 
 (defn kick
   "Kicks a user from a channel."
-  [irc channel nick & {reason reason}]
+  [irc channel nick & {reason :reason}]
   (send-msg "KICK" irc channel (str nick " :" reason)))
 
 (defn get-names
