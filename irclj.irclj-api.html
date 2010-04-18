@@ -54,7 +54,11 @@ namespace.
     </div><div style="margin-left: 1em;" class="toc-entry">
       <a href="#irclj.irclj/create-irc">create-irc</a>
     </div><div style="margin-left: 1em;" class="toc-entry">
+      <a href="#irclj.irclj/get-irc-line">get-irc-line</a>
+    </div><div style="margin-left: 1em;" class="toc-entry">
       <a href="#irclj.irclj/get-names">get-names</a>
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a href="#irclj.irclj/get-topic">get-topic</a>
     </div><div style="margin-left: 1em;" class="toc-entry">
       <a href="#irclj.irclj/join-chan">join-chan</a>
     </div><div style="margin-left: 1em;" class="toc-entry">
@@ -73,6 +77,8 @@ namespace.
       <a href="#irclj.irclj/set-nick">set-nick</a>
     </div><div style="margin-left: 1em;" class="toc-entry">
       <a href="#irclj.irclj/set-topic">set-topic</a>
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a href="#irclj.irclj/whois">whois</a>
     </div>
     <br />
   </div>
@@ -124,11 +130,29 @@ irclj, irclj, teh bawt, and 6667 respectively.</pre>
 </div><div id="var-entry">
   <br />
   <hr />
+  <h2 id="irclj.irclj/get-irc-line">get-irc-line</h2>
+  <span id="var-type">function</span><br />
+  <pre id="var-usage">Usage: (get-irc-line irc)
+</pre>
+  <pre id="var-docstr">Reads a line from IRC. Returns the string 'Socket Closed.' if the socket provided is closed.</pre>
+  
+</div><div id="var-entry">
+  <br />
+  <hr />
   <h2 id="irclj.irclj/get-names">get-names</h2>
   <span id="var-type">function</span><br />
   <pre id="var-usage">Usage: (get-names irc channel)
 </pre>
   <pre id="var-docstr">Gets a list of the users in a channel. Includes modes.</pre>
+  
+</div><div id="var-entry">
+  <br />
+  <hr />
+  <h2 id="irclj.irclj/get-topic">get-topic</h2>
+  <span id="var-type">function</span><br />
+  <pre id="var-usage">Usage: (get-topic irc channel)
+</pre>
+  <pre id="var-docstr">Gets the topic of a channel.</pre>
   
 </div><div id="var-entry">
   <br />
@@ -211,6 +235,15 @@ target.</pre>
   <pre id="var-usage">Usage: (set-topic irc channel topic)
 </pre>
   <pre id="var-docstr">Sets the topic for a channel.</pre>
+  
+</div><div id="var-entry">
+  <br />
+  <hr />
+  <h2 id="irclj.irclj/whois">whois</h2>
+  <span id="var-type">function</span><br />
+  <pre id="var-usage">Usage: (whois irc nick)
+</pre>
+  <pre id="var-docstr">Sends a whois request and returns the contents.</pre>
   
 </div>
 
