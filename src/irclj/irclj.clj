@@ -17,13 +17,23 @@
 	 port 6667}}]
   (IRC. name password server username port realname fnmap))
 
-(defn get-irc-line
+(defn print-irc-line
+  "Prints a line of text to an IRC connection."
+  [{{sockout :sockout} :connection} text]
+  (println (str ">>>" text))
+  (binding [*out* sockout] 
+    (println text)
+    (str sockout)))
+
+(defn read-irc-line
   "Reads a line from IRC. Returns the string 'Socket Closed.' if the socket provided is closed."
-  [irc]
-  (try (let [line (.readLine (:sockin (:connection @irc)))]
-	 (println line)
-	 line)
-       (catch java.net.SocketException _ "Socket Closed.")))
+  [{{sockin :sockin} :connection}]
+  (try 
+   (binding [*in* sockin]
+     (let [line (read-line)]
+       (println line)
+       line))
+   (catch java.net.SocketException _ "Socket Closed.")))
 
 (defn- strip-start
   "Strips everything away until the message."
@@ -40,9 +50,7 @@
   function. If you want to send a message or a notice or something, use send-message
   and friends. Don't use this unless what you're trying to do isn't already done."
   [type irc target message]
-  (let [{{sockout :sockout} :connection} @irc]
-    (.println sockout (str type " " target " " message)))
-  (println (str ">>>" type " " target " " message)))
+  (print-irc-line @irc (str type " " target " " message)))
 
 (defn send-message
   "Takes an IRC, a message and a target to send it to, and sends an IRC message to
@@ -71,7 +79,7 @@
   "Joins a channel."
   [irc channel]
   (send-msg "JOIN" irc "" (str ":" channel))
-  (let [rline (apply str (rest (get-irc-line irc)))
+  (let [rline (apply str (rest (read-irc-line @irc)))
 	words (.split rline " ")]
     (println (str ":" rline))
     (when-not (= (second words) "403")
@@ -104,7 +112,7 @@
   [irc channel]
   (send-msg "NAMES" irc "" channel)
   (loop [acc []]
-    (let [rline (apply str (rest (get-irc-line irc)))
+    (let [rline (apply str (rest (read-irc-line @irc)))
 	  words (.split rline " ")
 	  num (second words)]
       (when-not (= num "403")
@@ -117,10 +125,10 @@
   (haven't quite worked date out yet). If the channel doesn't exist, returns nil."
   [irc channel]
   (send-msg "TOPIC" irc "" channel)
-  (let [rline (apply str (rest (get-irc-line irc)))
+  (let [rline (apply str (rest (read-irc-line @irc)))
 	words (.split rline " ")]
     (when (= (second words) "332")
-      (let [rline2 (.split (get-irc-line irc) " ")]
+      (let [rline2 (.split (read-irc-line irc) " ")]
 	{:topic (apply str (rest (drop-while #(not= % \:) rline)))
 	 :set-by (last (butlast rline2))
 	 :date (last rline2)}))))
@@ -132,7 +140,7 @@
   [irc nick]
   (send-msg "WHOIS" irc "" nick)
   (loop [acc []]
-    (let [rline (apply str (rest (get-irc-line irc)))
+    (let [rline (apply str (rest (read-irc-line @irc)))
 	  words (.split rline " ")
 	  num (second words)]
       (when-not (= num "401")
@@ -207,7 +215,7 @@
   "Closes an IRC connection (including the socket)."
   [irc]
   (let [{{:keys [sock sockout sockin]} :connection} @irc]
-    (.println sockout "QUIT")
+    (print-irc-line @irc "QUIT")
     (.close sock)
     (.close sockin)
     (.close sockout)))
@@ -223,17 +231,16 @@
 	sockout (PrintWriter. (output-stream sock) true)
 	sockin (reader (input-stream sock))
 	irc (ref (assoc botmap :connection {:sock sock :sockin sockin :sockout sockout}))]
-    (doto sockout
-      (.println (str "NICK " name))
-      (.println (str "USER " username " na na :" realname)))
     (.start (Thread. (fn []
+		       (print-irc-line @irc (str "NICK " name))
+		       (print-irc-line @irc (str "USER " username " na na :" realname))
 		       (while (not (.isClosed sock))
-			      (let [rline (get-irc-line irc)
+			      (let [rline (read-irc-line @irc)
 				    line (apply str (rest rline))
 				    words (.split line " ")]
 				(cond
-				 (.startsWith rline "PING") (do (.println sockout (.replace rline "PING" "PONG"))
-								(println ">>>PONG"))
+				 (.startsWith rline "PING") (do 
+							      (print-irc-line @irc (.replace rline "PING" "PONG")))
 				 (= (second words) "001") (doseq [channel channels] 
 							    (join-chan irc channel)))
 				:else (handle (mess-to-map words) irc))))))
