@@ -3,11 +3,15 @@
   (:use clojure.test
 	clojure.contrib.io))
 
+(defn make-rdr [s]
+  (reader 
+   (java.io.ByteArrayInputStream. 
+    (.getBytes s))))
+
+
 (defn fake-conn-info [] 
   (ref
-   {:connection {:sockin (reader 
-			  (java.io.ByteArrayInputStream. 
-			   (.getBytes ":rer/f34wr232/ PRIVMSG chan :ohai")))
+   {:connection {:sockin (make-rdr ":rer/f34wr232/ PRIVMSG chan :ohai")
 		 :sockout (java.io.StringWriter.)}}))
 
 (deftest print-irc-line-test
@@ -28,3 +32,10 @@
 
 (deftest send-action-test
   (is (= (send-action (fake-conn-info) "#omg" "like's pancakes.") "PRIVMSG #omg :ACTION like's pancakes.\n")))
+
+(deftest set-nick-test
+  (let [con (ref {:connection {:sockin (make-rdr ":wellyeahdood NICK blahblah blah")
+			       :sockout (java.io.StringWriter.)}
+		  :name "Yamama"})]
+    (is (= (set-nick con "Rayne") "NICK Rayne \n"))
+    (is (= (:name @con) "Rayne"))))

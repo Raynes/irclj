@@ -72,24 +72,28 @@
 (defn set-nick
   "Changes your nick."
   [irc nick]
-  (send-msg "NICK" irc nick nil)
-  (dosync (alter irc assoc :name nick)))
+  (let [res (send-msg "NICK" irc nick nil)]
+    (when (= (second (.split (read-irc-line @irc) " ")) "NICK")
+      (dosync (alter irc assoc :name nick)))
+    res))
 
 (defn join-chan
   "Joins a channel."
   [irc channel]
-  (send-msg "JOIN" irc "" (str ":" channel))
-  (let [rline (apply str (rest (read-irc-line @irc)))
+  (let [res (send-msg "JOIN" irc "" (str ":" channel))
+	rline (apply str (rest (read-irc-line @irc)))
 	words (.split rline " ")]
     (println (str ":" rline))
     (when-not (= (second words) "403")
-      (dosync (alter irc assoc :channels (conj (:channels @irc) channel))))))
+      (dosync (alter irc assoc :channels (conj (:channels @irc) channel))))
+    res))
 
 (defn part-chan
   "Leaves a channel."
   [irc channel & {reason :reason}]
-  (send-msg "PART" irc "" channel)
-  (dosync (alter irc assoc :channels (remove #(= % channel) (:channels @irc)))))
+  (let [res (send-msg "PART" irc "" channel)]
+    (dosync (alter irc assoc :channels (remove #(= % channel) (:channels @irc))))
+    res))
 
 (defn set-mode
   "Set modes."
