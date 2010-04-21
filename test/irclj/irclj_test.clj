@@ -4,7 +4,7 @@
 	clojure.contrib.io))
 
 (defn make-rdr [s]
-  (reader 
+  (reader
    (java.io.ByteArrayInputStream. 
     (.getBytes s))))
 
@@ -39,3 +39,17 @@
 		  :name "Yamama"})]
     (is (= (set-nick con "Rayne") "NICK Rayne \n"))
     (is (= (:name @con) "Rayne"))))
+
+(deftest join-test
+  (let [con (ref {:connection {:sockin (make-rdr ":rtgern JOIN :#chan\n")
+			       :sockout (java.io.StringWriter.)}
+		  :channels []})]
+    (is (= "JOIN  :#chan\n" (join-chan con "#chan")))
+    (is (= "#chan" (first (:channels @con))))))
+
+(deftest part-test
+  (let [con (ref {:connection {:sockin (make-rdr ":blsnfreiu PART #chan")
+			       :sockout (java.io.StringWriter.)}
+		  :channels ["#chan"]})]
+    (is (= "PART  #chan\n" (part-chan con "#chan")))
+    (is (= nil (first (:channels @con))))))
