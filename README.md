@@ -41,7 +41,7 @@ And here are action specific map keys that are put in the map along with the key
     KICK ; :channel, :target, :message
     TOPIC ; :channel, :topic
 
-All of this information is sent in a single map that you can destructure in the functions in fn map. Simple, right? Well, I suck at explaining things, but looking at the example(s) in the /examples directory should help. You can also look at the bot that this library was originally created for, [sexpbot](http://github.com/Raynes/sexpbot). If you have any questions, you can find me on freenode, at #clojure, #clojure-casual, and #(). If you have any questions or suggestions, feel free to hit me up with them.
+All of this information is sent in a single map that you can destructure in the functions in fn map. Simple, right? Well, I suck at explaining things, but looking at the example(s) in the /examples directory should help. You can also look at the bot that this library was originally created for, [sexpbot](http://github.com/Raynes/sexpbot). If you have any questions, you can find me on freenode, at #clojure, #clojure-casual, and #(code). If you have any questions or suggestions, feel free to hit me up with them.
 
 ## Installation
 
