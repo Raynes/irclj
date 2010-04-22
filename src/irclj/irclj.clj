@@ -174,7 +174,7 @@
 	     "MODE" (let [[mode target] message] {:channel channel :mode mode :target target})
 	     "TOPIC" {:channel channel :topic (extract-message message)}
 	     "KICK" (let [[target & message] message] 
-		      {:channel channel :target target :message (extract-message message message)})
+		      {:channel channel :target target :message (extract-message message)})
 	     {}))))
 
 (defmacro- when-not-nil 

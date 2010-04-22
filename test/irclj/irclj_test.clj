@@ -53,3 +53,4 @@
 		  :channels ["#chan"]})]
     (is (= "PART  #chan\n" (part-chan con "#chan")))
     (is (= nil (first (:channels @con))))))
+
