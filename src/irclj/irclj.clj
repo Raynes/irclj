@@ -152,6 +152,11 @@
 	  (recur (->> words (drop 4) (interpose " ") (apply str) (conj acc)))
 	  (zipmap [:user :channels :server :loggedinas] acc))))))
 
+(defn identify
+  "Indentifies with the network."
+  [irc]
+  (send-message irc "NickServ" (str "IDENTIFY " (:password @irc))))
+
 (defn- extract-message [s]
   (apply str (rest (join " " s))))
 
@@ -228,9 +233,14 @@
   "Takes an IRC defrecord and optionally, a sequence of channels to join and
   connects to IRC based on the information provided in the IRC and optionally joins
   the channels. The connection itself runs in a separate thread, and the input stream
-  and output stream are merged into the IRC and returned as a ref."
+  and output stream are merged into the IRC and returned as a ref.
+
+  If you wish to identify after connecting, you'll want to supply a password to your IRC
+  record, and the optional key :identify-after-secs to connect. :indentify-after-secs takes
+  a number of seconds to wait after identifying before joining channels. This is useful for
+  people with hostmasks."
   [#^IRC {:keys [name password server username port realname fnmap server port] :as botmap}
-   & {channels :channels}]
+   & {:keys [channels identify-after-secs]}]
   (let [sock (Socket. server port)
 	sockout (PrintWriter. (output-stream sock) true)
 	sockin (reader (input-stream sock))
@@ -243,9 +253,17 @@
 				    line (apply str (rest rline))
 				    words (.split line " ")]
 				(cond
-				 (.startsWith rline "PING") (do 
-							      (print-irc-line @irc (.replace rline "PING" "PONG")))
-				 (= (second words) "001") (doseq [channel channels] 
-							    (join-chan irc channel)))
+				 (.startsWith rline "PING") ; :>> 
+				 (do 
+				   (print-irc-line @irc (.replace rline "PING" "PONG")))
+				 (= (second words) "001")  ; :>>
+				 (do
+				   (when (and identify-after-secs password)
+				     (identify irc)
+				     (Thread/sleep (* 1000 identify-after-secs))
+				     (println "Sleeping while identification takes place."))
+				   (when channels
+				     (doseq [channel channels] 
+				       (join-chan irc channel)))))
 				:else (handle (mess-to-map words) irc))))))
     irc))
