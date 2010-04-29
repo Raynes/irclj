@@ -197,6 +197,7 @@
 		  "VERSION" "irclj version ohai"
 		  "TIME"    "Time for you to SHUT THE FUCK UP."
 		  "FINGER"  "OMG, DADDY TOUCHED ME IN THE BAD PLACE.!"
+		  "PING" "PONG!"
 		  "Not supported.")))))
 
 (defn- handle 
