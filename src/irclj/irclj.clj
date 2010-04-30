@@ -50,13 +50,20 @@
   function. If you want to send a message or a notice or something, use send-message
   and friends. Don't use this unless what you're trying to do isn't already done."
   [type irc target message]
-  (print-irc-line @irc (str type " " target " " message)))
+  (print-irc-line @irc (str type " " target (when (seq target) " ") message)))
+
+(defn send-raw-message
+  "Takes an IRC, a message and a target to send it to, and sends an IRC message to
+  target (user, channel). Be careful using this function, because newlines and carriage
+  returns are filter out. You want to use send-message unless you need this behavior."
+  [irc target message]
+  (send-msg "PRIVMSG" irc target (str ":" message)))
 
 (defn send-message
   "Takes an IRC, a message and a target to send it to, and sends an IRC message to
-  target (user, channel)."
+  target (user, channel). Filters out newlines and carriage returns."
   [irc target message]
-  (send-msg "PRIVMSG" irc target (str ":" message)))
+  (send-msg "PRIVMSG" irc target (str ":" (.replaceAll message "\n|\r" ""))))
 
 (defn send-notice
   "Takes an IRC, a message, and a target to send to, and sends a NOTICE to target
@@ -67,7 +74,7 @@
 (defn send-action
   "Sends a CTCP ACTION to a target (user, channel)"
   [irc target message]
-  (send-msg "PRIVMSG" irc target (str ":" \ "ACTION" " " message \)))
+  (send-msg "PRIVMSG" irc target (str ":" \ "ACTION " message \)))
 
 (defn set-nick
   "Changes your nick."
