@@ -121,7 +121,7 @@
 	  words (.split rline " ")
 	  num (second words)]
       (when-not (= num "403")
-	(if (= num "353") 
+	(if (= num "353")
 	  (recur (conj acc (strip-start rline))) 
 	  (.split (apply str (interpose " " acc)) " "))))))
 
