@@ -41,45 +41,39 @@
   (second (.split s ":")))
 
 (defn send-msg
-  "Takes a 'type' of message to send, such as PRIVMSG, the IRC record you want to use,
-  a target (user, channel, et al) to send it to, and a message. In trying to be general
-  enough to be used by the other IRC functions to send different IRC requests, this function
-  will not insert a : before the message you send, so if you're sending something that
-  requires that, remember to put : before it. Also, this function should only be used
-  to handle stuff that isn't already handled by other functions. This is a utility
-  function. If you want to send a message or a notice or something, use send-message
-  and friends. Don't use this unless what you're trying to do isn't already done."
-  [type irc target message]
-  (print-irc-line @irc (str type " " target (when (seq target) " ") message)))
+  "Utility function for sending raw messages. Don't use this function unless you're implementing
+  a protocol function. Use send-message instead."
+  [irc type message]
+  (print-irc-line @irc (str type " " message)))
 
 (defn send-raw-message
   "Takes an IRC, a message and a target to send it to, and sends an IRC message to
   target (user, channel). Be careful using this function, because newlines and carriage
   returns are filter out. You want to use send-message unless you need this behavior."
   [irc target message]
-  (send-msg "PRIVMSG" irc target (str ":" message)))
+  (send-msg irc "PRIVMSG" (str target " :" message)))
 
 (defn send-message
   "Takes an IRC, a message and a target to send it to, and sends an IRC message to
   target (user, channel). Filters out newlines and carriage returns."
   [irc target message]
-  (send-msg "PRIVMSG" irc target (str ":" (.replaceAll message "\n|\r" ""))))
+  (send-msg irc "PRIVMSG" (str target " :" (.replaceAll message "\n|\r" ""))))
 
 (defn send-notice
   "Takes an IRC, a message, and a target to send to, and sends a NOTICE to target
   (user, channel)."
   [irc target message]
-  (send-msg "NOTICE" irc target (str ":" message)))
+  (send-msg irc "NOTICE" (str target " :" message)))
 
 (defn send-action
   "Sends a CTCP ACTION to a target (user, channel)"
   [irc target message]
-  (send-msg "PRIVMSG" irc target (str ":" \ "ACTION " message \)))
+  (send-msg irc "PRIVMSG" (str target " :" \ "ACTION " message \)))
 
 (defn set-nick
   "Changes your nick."
   [irc nick]
-  (let [res (send-msg "NICK" irc nick nil)]
+  (let [res (send-msg irc "NICK" nick)]
     (when (= (second (.split (read-irc-line @irc) " ")) "NICK")
       (dosync (alter irc assoc :name nick)))
     res))
@@ -87,7 +81,7 @@
 (defn join-chan
   "Joins a channel."
   [irc channel]
-  (let [res (send-msg "JOIN" irc "" (str ":" channel))
+  (let [res (send-msg irc "JOIN" (str ":" channel))
 	rline (apply str (rest (read-irc-line @irc)))
 	words (.split rline " ")]
     (println (str ":" rline))
@@ -98,30 +92,30 @@
 (defn part-chan
   "Leaves a channel."
   [irc channel & {reason :reason}]
-  (let [res (send-msg "PART" irc "" channel)]
+  (let [res (send-msg irc "PART" channel)]
     (dosync (alter irc assoc :channels (remove #(= % channel) (:channels @irc))))
     res))
 
 (defn set-mode
   "Set modes."
   [irc channel mode nick]
-  (send-msg "MODE" irc channel (str mode " " nick)))
+  (send-msg irc "MODE" (str channel " " mode " " nick)))
 
 (defn set-topic
   "Sets the topic for a channel."
   [irc channel topic]
-  (send-msg "TOPIC" irc channel (str ":" topic)))
+  (send-msg irc "TOPIC" (str channel " :" topic)))
 
 (defn kick
   "Kicks a user from a channel."
-  [irc channel nick & {reason :reason}]
-  (send-msg "KICK" irc channel (str nick " :" reason)))
+  [irc channel nick & {reason :reason :or [reason "bai"]}]
+  (send-msg irc "KICK" (str channel " " nick " :" reason)))
 
 (defn get-names
   "Gets a list of the users in a channel. Includes modes. Returns nil if the channel
   doesn't exist."
   [irc channel]
-  (send-msg "NAMES" irc "" channel)
+  (send-msg irc "NAMES" channel)
   (loop [acc []]
     (let [rline (apply str (rest (read-irc-line @irc)))
 	  words (.split rline " ")
@@ -135,7 +129,7 @@
   "Gets the topic of a channel. Returns a map of :topic, :set-by, and :date
   (haven't quite worked date out yet). If the channel doesn't exist, returns nil."
   [irc channel]
-  (send-msg "TOPIC" irc "" channel)
+  (send-msg irc "TOPIC" channel)
   (let [rline (apply str (rest (read-irc-line @irc)))
 	words (.split rline " ")]
     (when (= (second words) "332")
@@ -149,7 +143,7 @@
   Keys are: :loggedinas, :user, :channels, and :server. Returns nil if user
   doesn't exist."
   [irc nick]
-  (send-msg "WHOIS" irc "" nick)
+  (send-msg irc "WHOIS" nick)
   (loop [acc []]
     (let [rline (apply str (rest (read-irc-line @irc)))
 	  words (.split rline " ")

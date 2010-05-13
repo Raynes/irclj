@@ -21,7 +21,7 @@
   (is (= ":rer/f34wr232/ PRIVMSG chan :ohai" (read-irc-line (deref (fake-conn-info))))))
 
 (deftest send-msg-test
-  (is (= (send-msg "PRIVMSG" (fake-conn-info) "#chan" ":sup there friend!")
+  (is (= (send-msg (fake-conn-info) "PRIVMSG" (str "#chan" " :sup there friend!"))
 	 "PRIVMSG #chan :sup there friend!\n")))
 
 (deftest send-message-test
@@ -37,20 +37,20 @@
   (let [con (ref {:connection {:sockin (make-rdr ":wellyeahdood NICK blahblah blah")
 			       :sockout (java.io.StringWriter.)}
 		  :name "Yamama"})]
-    (is (= (set-nick con "Rayne") "NICK Rayne \n"))
+    (is (= (set-nick con "Rayne") "NICK Rayne\n"))
     (is (= (:name @con) "Rayne"))))
 
 (deftest join-test
   (let [con (ref {:connection {:sockin (make-rdr ":rtgern JOIN :#chan\n")
 			       :sockout (java.io.StringWriter.)}
 		  :channels []})]
-    (is (= "JOIN  :#chan\n" (join-chan con "#chan")))
+    (is (= "JOIN :#chan\n" (join-chan con "#chan")))
     (is (= "#chan" (first (:channels @con))))))
 
 (deftest part-test
   (let [con (ref {:connection {:sockin (make-rdr ":blsnfreiu PART #chan")
 			       :sockout (java.io.StringWriter.)}
 		  :channels ["#chan"]})]
-    (is (= "PART  #chan\n" (part-chan con "#chan")))
+    (is (= "PART #chan\n" (part-chan con "#chan")))
     (is (= nil (first (:channels @con))))))
 
