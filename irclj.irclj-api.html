@@ -54,17 +54,21 @@ namespace.
     </div><div style="margin-left: 1em;" class="toc-entry">
       <a href="#irclj.irclj/create-irc">create-irc</a>
     </div><div style="margin-left: 1em;" class="toc-entry">
-      <a href="#irclj.irclj/get-irc-line">get-irc-line</a>
-    </div><div style="margin-left: 1em;" class="toc-entry">
       <a href="#irclj.irclj/get-names">get-names</a>
     </div><div style="margin-left: 1em;" class="toc-entry">
       <a href="#irclj.irclj/get-topic">get-topic</a>
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a href="#irclj.irclj/identify">identify</a>
     </div><div style="margin-left: 1em;" class="toc-entry">
       <a href="#irclj.irclj/join-chan">join-chan</a>
     </div><div style="margin-left: 1em;" class="toc-entry">
       <a href="#irclj.irclj/kick">kick</a>
     </div><div style="margin-left: 1em;" class="toc-entry">
       <a href="#irclj.irclj/part-chan">part-chan</a>
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a href="#irclj.irclj/print-irc-line">print-irc-line</a>
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a href="#irclj.irclj/read-irc-line">read-irc-line</a>
     </div><div style="margin-left: 1em;" class="toc-entry">
       <a href="#irclj.irclj/send-action">send-action</a>
     </div><div style="margin-left: 1em;" class="toc-entry">
@@ -73,6 +77,8 @@ namespace.
       <a href="#irclj.irclj/send-msg">send-msg</a>
     </div><div style="margin-left: 1em;" class="toc-entry">
       <a href="#irclj.irclj/send-notice">send-notice</a>
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a href="#irclj.irclj/send-raw-message">send-raw-message</a>
     </div><div style="margin-left: 1em;" class="toc-entry">
       <a href="#irclj.irclj/set-mode">set-mode</a>
     </div><div style="margin-left: 1em;" class="toc-entry">
@@ -111,12 +117,17 @@ by <span id="author">Anthony Simpson (Rayne)</span><br />
   <hr />
   <h2 id="irclj.irclj/connect">connect</h2>
   <span id="var-type">function</span><br />
-  <pre id="var-usage">Usage: (connect {:keys [name password server username port realname fnmap server port], :as botmap} &amp; {channels :channels})
+  <pre id="var-usage">Usage: (connect {:keys [name password server username port realname fnmap server port], :as botmap} &amp; {:keys [channels identify-after-secs]})
 </pre>
   <pre id="var-docstr">Takes an IRC defrecord and optionally, a sequence of channels to join and
 connects to IRC based on the information provided in the IRC and optionally joins
 the channels. The connection itself runs in a separate thread, and the input stream
-and output stream are merged into the IRC and returned as a ref.</pre>
+and output stream are merged into the IRC and returned as a ref.
+
+If you wish to identify after connecting, you'll want to supply a password to your IRC
+record, and the optional key :identify-after-secs to connect. :indentify-after-secs takes
+a number of seconds to wait after identifying before joining channels. This is useful for
+people with hostmasks.</pre>
   
 </div><div id="var-entry">
   <br />
@@ -128,15 +139,6 @@ and output stream are merged into the IRC and returned as a ref.</pre>
   <pre id="var-docstr">Function to create an IRC(bot). You need to at most supply a server and fnmap.
 If you don't supply a name, username, realname, or port, they will default to
 irclj, irclj, teh bawt, and 6667 respectively.</pre>
-  
-</div><div id="var-entry">
-  <br />
-  <hr />
-  <h2 id="irclj.irclj/get-irc-line">get-irc-line</h2>
-  <span id="var-type">function</span><br />
-  <pre id="var-usage">Usage: (get-irc-line irc)
-</pre>
-  <pre id="var-docstr">Reads a line from IRC. Returns the string 'Socket Closed.' if the socket provided is closed.</pre>
   
 </div><div id="var-entry">
   <br />
@@ -161,6 +163,15 @@ doesn't exist.</pre>
 </div><div id="var-entry">
   <br />
   <hr />
+  <h2 id="irclj.irclj/identify">identify</h2>
+  <span id="var-type">function</span><br />
+  <pre id="var-usage">Usage: (identify irc)
+</pre>
+  <pre id="var-docstr">Indentifies with the network.</pre>
+  
+</div><div id="var-entry">
+  <br />
+  <hr />
   <h2 id="irclj.irclj/join-chan">join-chan</h2>
   <span id="var-type">function</span><br />
   <pre id="var-usage">Usage: (join-chan irc channel)
@@ -172,7 +183,7 @@ doesn't exist.</pre>
   <hr />
   <h2 id="irclj.irclj/kick">kick</h2>
   <span id="var-type">function</span><br />
-  <pre id="var-usage">Usage: (kick irc channel nick reason)
+  <pre id="var-usage">Usage: (kick irc channel nick &amp; {reason :reason, :or [reason bai]})
 </pre>
   <pre id="var-docstr">Kicks a user from a channel.</pre>
   
@@ -181,9 +192,27 @@ doesn't exist.</pre>
   <hr />
   <h2 id="irclj.irclj/part-chan">part-chan</h2>
   <span id="var-type">function</span><br />
-  <pre id="var-usage">Usage: (part-chan irc channel reason)
+  <pre id="var-usage">Usage: (part-chan irc channel &amp; {reason :reason})
 </pre>
   <pre id="var-docstr">Leaves a channel.</pre>
+  
+</div><div id="var-entry">
+  <br />
+  <hr />
+  <h2 id="irclj.irclj/print-irc-line">print-irc-line</h2>
+  <span id="var-type">function</span><br />
+  <pre id="var-usage">Usage: (print-irc-line {{sockout :sockout} :connection} text)
+</pre>
+  <pre id="var-docstr">Prints a line of text to an IRC connection.</pre>
+  
+</div><div id="var-entry">
+  <br />
+  <hr />
+  <h2 id="irclj.irclj/read-irc-line">read-irc-line</h2>
+  <span id="var-type">function</span><br />
+  <pre id="var-usage">Usage: (read-irc-line {{sockin :sockin} :connection})
+</pre>
+  <pre id="var-docstr">Reads a line from IRC. Returns the string 'Socket Closed.' if the socket provided is closed.</pre>
   
 </div><div id="var-entry">
   <br />
@@ -202,23 +231,17 @@ doesn't exist.</pre>
   <pre id="var-usage">Usage: (send-message irc target message)
 </pre>
   <pre id="var-docstr">Takes an IRC, a message and a target to send it to, and sends an IRC message to
-target (user, channel).</pre>
+target (user, channel). Filters out newlines and carriage returns.</pre>
   
 </div><div id="var-entry">
   <br />
   <hr />
   <h2 id="irclj.irclj/send-msg">send-msg</h2>
   <span id="var-type">function</span><br />
-  <pre id="var-usage">Usage: (send-msg type irc target message)
+  <pre id="var-usage">Usage: (send-msg irc type message)
 </pre>
-  <pre id="var-docstr">Takes a 'type' of message to send, such as PRIVMSG, the IRC record you want to use,
-a target (user, channel, et al) to send it to, and a message. In trying to be general
-enough to be used by the other IRC functions to send different IRC requests, this function
-will not insert a : before the message you send, so if you're sending something that
-requires that, remember to put : before it. Also, this function should only be used
-to handle stuff that isn't already handled by other functions. This is a utility
-function. If you want to send a message or a notice or something, use send-message
-and friends. Don't use this unless what you're trying to do isn't already done.</pre>
+  <pre id="var-docstr">Utility function for sending raw messages. Don't use this function unless you're implementing
+a protocol function. Use send-message instead.</pre>
   
 </div><div id="var-entry">
   <br />
@@ -229,6 +252,17 @@ and friends. Don't use this unless what you're trying to do isn't already done.<
 </pre>
   <pre id="var-docstr">Takes an IRC, a message, and a target to send to, and sends a NOTICE to target
 (user, channel).</pre>
+  
+</div><div id="var-entry">
+  <br />
+  <hr />
+  <h2 id="irclj.irclj/send-raw-message">send-raw-message</h2>
+  <span id="var-type">function</span><br />
+  <pre id="var-usage">Usage: (send-raw-message irc target message)
+</pre>
+  <pre id="var-docstr">Takes an IRC, a message and a target to send it to, and sends an IRC message to
+target (user, channel). Be careful using this function, because newlines and carriage
+returns are filter out. You want to use send-message unless you need this behavior.</pre>
   
 </div><div id="var-entry">
   <br />
