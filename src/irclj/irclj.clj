@@ -163,14 +163,15 @@
 
 (defn- mess-to-map
   "Parses a message into a map."
-  [[user doing & [channel & message :as more]]]
+  [[user doing & [channel & message :as more] :as everything]]
   (let [[nick ident hostmask] (.split user "\\!|\\@")
 	message-map {:user user
 		     :nick nick
 		     :hmask hostmask
 		     :ident ident
 		     :doing doing}]
-    (merge message-map 
+    (merge message-map
+	   {:raw-message (str ":" (apply str (interpose " " everything)))}
 	   (condp = doing
 	     "PRIVMSG" {:channel channel :message (extract-message message)}
 	     "QUIT" {:reason (extract-message more)}
@@ -201,26 +202,32 @@
 		  "PING" "PONG!"
 		  "Not supported.")))))
 
+(defn- channel-or-nick [{:keys [channel nick irc] :as info-map}]
+  (if (= channel (:name @irc)) (assoc info-map :channel nick) info-map))
+
 (defn- handle 
   "Handles various IRC things. This is important."
   [{:keys [user nick ident doing channel message reason target mode] :as info} irc]
-  (let [{{:keys [on-message on-quit on-part on-join on-notice on-mode on-topic on-kick]} :fnmap} @irc
-	info-map (assoc info :irc irc)]
+  
+  (let [{{:keys [on-any on-action on-message on-quit on-part on-join
+		 on-notice on-mode on-topic on-kick]} :fnmap} @irc
+		 info-map (assoc info :irc irc)]
+    ; This will be executed independent of what type of event comes in. Great for logging.
+    (when-not-nil on-any (on-any info-map))
     (condp = doing
-      "PRIVMSG" (if (= (first message) \)
-		  (handle-ctcp irc nick message)
-		  (when-not-nil on-message (on-message 
-					    (if (= channel (:name @irc)) 
-					      (assoc info-map :channel nick) 
-					      info-map))))
-      "QUIT" (when-not-nil on-quit (on-quit info-map))
-      "JOIN" (when-not-nil on-join (on-join info-map))
-      "PART" (when-not-nil on-part (on-part info-map))
-      "NOTICE" (when-not-nil on-notice (on-notice info-map))
-      "MODE" (when-not-nil on-mode (on-mode info-map))
-      "TOPIC" (when-not-nil on-topic (on-topic info-map))
-      "KICK" (when-not-nil on-kick (on-kick info-map))
-      nil)))
+	"PRIVMSG" (if (= (first message) \)
+		    (handle-ctcp irc nick message)
+		    (if (and on-action (.startsWith message "ACTION"))
+		      (on-action (channel-or-nick info-map))
+		      (when-not-nil on-message (on-message (channel-or-nick info-map)))))
+	"QUIT" (when-not-nil on-quit (on-quit info-map))
+	"JOIN" (when-not-nil on-join (on-join info-map))
+	"PART" (when-not-nil on-part (on-part info-map))
+	"NOTICE" (when-not-nil on-notice (on-notice info-map))
+	"MODE" (when-not-nil on-mode (on-mode info-map))
+	"TOPIC" (when-not-nil on-topic (on-topic info-map))
+	"KICK" (when-not-nil on-kick (on-kick info-map))
+	nil)))
 
 (defn close
   "Closes an IRC connection (including the socket)."
