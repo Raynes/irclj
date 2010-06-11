@@ -18,6 +18,7 @@ The fnmap can contain 0 or more functions. The functions need to be named specif
     MODE ; on-mode
     KICK ; on-kick
     TOPIC ; on-topic
+    CTCP ACTION ; on-action
 
 You can supply none or as many (if you don't want to be useful ;)) of these as you like. If you define an on-message function in fnmap, and the irc connection/bot sees a PRIVMSG, that function will be called. Each function, when called, is passed a map. They supply different things in the map depending on what function was called. There are certain things that are always in the map regardless of what is called. These are:
 
