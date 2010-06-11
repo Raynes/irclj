@@ -208,18 +208,18 @@
 (defn- handle 
   "Handles various IRC things. This is important."
   [{:keys [user nick ident doing channel message reason target mode] :as info} irc]
-  
   (let [{{:keys [on-any on-action on-message on-quit on-part on-join
 		 on-notice on-mode on-topic on-kick]} :fnmap} @irc
-		 info-map (assoc info :irc irc)]
+		 info-map (assoc info :irc irc)
+		 is-action (when (seq message) (.startsWith message "ACTION"))]
     ; This will be executed independent of what type of event comes in. Great for logging.
     (when-not-nil on-any (on-any info-map))
     (condp = doing
-	"PRIVMSG" (if (= (first message) \)
-		    (handle-ctcp irc nick message)
-		    (if (and on-action (.startsWith message "ACTION"))
-		      (on-action (channel-or-nick info-map))
-		      (when-not-nil on-message (on-message (channel-or-nick info-map)))))
+	"PRIVMSG" (cond
+		   (and on-action (.startsWith message "ACTION"))
+		   (on-action (channel-or-nick (->> :message info-map (drop 8) butlast (apply str) (assoc info-map :message))))
+		   (and (= (first message) \)) (handle-ctcp irc nick message)
+		   :else (when-not-nil on-message (on-message (channel-or-nick info-map))))
 	"QUIT" (when-not-nil on-quit (on-quit info-map))
 	"JOIN" (when-not-nil on-join (on-join info-map))
 	"PART" (when-not-nil on-part (on-part info-map))
