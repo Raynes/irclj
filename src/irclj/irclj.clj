@@ -2,11 +2,18 @@
     #^{:author "Anthony Simpson (Rayne)"
        :doc "A small IRC library to abstract over lower-level IRC connection handling."} 
     irclj.irclj
-    (:use [clojure.contrib io [string :only [join]] [def :only [defmacro-]]])
-    (:import [java.io PrintStream PrintWriter BufferedReader InputStreamReader]
-	     java.net.Socket))
+    (:use (clojure.contrib [string :only (join)]
+                           [def :only (defmacro-)]))
+    (:import (java.io OutputStreamWriter BufferedWriter PrintWriter 
+                      InputStreamReader BufferedReader)
+	     (java.net Socket)))
 
 (defrecord IRC [name password server username port realname fnmap])
+
+;; Other specialized encodings (e.g. for cyrillic or latin characters with diacritics)
+;; might actually still be the more common ones, but UTF-8 works/breaks equally for
+;; everyone and could one day become the single standard encoding.
+(def default-encoding "UTF-8")
 
 (defn create-irc 
   "Function to create an IRC(bot). You need to at most supply a server and fnmap.
@@ -247,12 +254,21 @@
   If you wish to identify after connecting, you'll want to supply a password to your IRC
   record, and the optional key :identify-after-secs to connect. :indentify-after-secs takes
   a number of seconds to wait after identifying before joining channels. This is useful for
-  people with hostmasks."
-  [#^IRC {:keys [name password server username port realname fnmap server port] :as botmap}
-   & {:keys [channels identify-after-secs]}]
-  (let [sock (Socket. server port)
-	sockout (PrintWriter. (output-stream sock) true)
-	sockin (reader (input-stream sock))
+  people with hostmasks.
+
+  Connection encoding can be specified with :encoding, which defaults to UTF-8. Separate
+  encodings for input and putput can be choosen with :in-encoding and :out-encoding, which
+  both default to the value of :encoding."
+  [#^IRC {:keys [name password server username port realname fnmap] :as botmap}
+   & {:keys [channels identify-after-secs encoding out-encoding in-encoding]}]
+  (let [encoding (or encoding default-encoding)
+        out-encoding (or out-encoding encoding)
+        in-encoding (or in-encoding encoding)
+        sock (Socket. server port)
+	sockout (-> sock (.getOutputStream) (OutputStreamWriter. out-encoding)
+                    (BufferedWriter.) (PrintWriter. true))
+	sockin (-> sock (.getInputStream) (InputStreamReader. in-encoding)
+                   (BufferedReader.))
 	irc (ref (assoc botmap :connection {:sock sock :sockin sockin :sockout sockout}))]
     (.start (Thread. (fn []
 		       (print-irc-line @irc (str "NICK " name))
