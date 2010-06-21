@@ -105,14 +105,16 @@
     (loop [line (rest-irc-line irc)]
       (let [[_ n & more] (.split (apply str (remove #(= \: %) line)) " ")]
         (condp = n
-            "332" (do (dosync (alter irc assoc-in
-                                     [:channels (nth more 1) :topic (apply str (drop 2 more))]))
-                      (recur (rest-irc-line irc)))
-            "353" (do (println "test\n\n")
-                      (dosync
-                       (alter irc update-in [:channels (nth more 1) :users]
-                              into (->> more (drop 3) parse-users)))
-                      (recur (rest-irc-line irc)))
+            "332" (do
+                    (dosync (alter irc assoc-in
+                                   [:channels (nth more 1) :topic]
+                                   (apply str (interpose " " (drop 2 more)))))
+                    (recur (rest-irc-line irc)))
+            "353" (do
+                    (dosync
+                     (alter irc update-in [:channels (nth more 2) :users]
+                            #(into (if % % {}) %2) (->> more (drop 3) parse-users)))
+                    (recur (rest-irc-line irc)))
             "366" nil
             "403" nil
             (recur (rest-irc-line irc)))))

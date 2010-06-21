@@ -22,6 +22,6 @@
 			 (send-message irc channel (str "you said " message)))})
 
 (def bot (connect (create-irc {:name "ircljbot" :server "irc.freenode.net" :fnmap fnmap}) 
-		  :channels [ "#irclj"]))
+		  :channels ["#()" "#irclj"]))
 (read-line)
 (close bot)
