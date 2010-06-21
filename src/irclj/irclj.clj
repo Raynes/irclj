@@ -78,15 +78,37 @@
       (dosync (alter irc assoc :name nick)))
     res))
 
+(defn- rest-irc-line
+  "Returns a normal line from IRC without the colon."
+  [irc] (apply str (rest (read-irc-line @irc))))
+
+(defn- parse-users
+  "Parses modes from user names."
+  [users]
+  (let [legal-symbols #{\! \@ \# \$ \% \& \*}]
+    (into {} (for [user users]
+               (if (legal-symbols (first user))
+                 [(apply str (rest user)) {:mode (first user)}]
+                 [user {:mode :none}])))))
+
 (defn join-chan
   "Joins a channel."
   [irc channel]
-  (let [res (send-msg irc "JOIN" (str ":" channel))
-	rline (apply str (rest (read-irc-line @irc)))
-	words (.split rline " ")]
-    (println (str ":" rline))
-    (when-not (= (second words) "403")
-      (dosync (alter irc assoc :channels (conj (:channels @irc) channel))))
+  (let [res (send-msg irc "JOIN" (str ":" channel))]
+    (loop [line (rest-irc-line irc)]
+      (let [[_ n & more] (.split (apply str (remove #(= \: %) line)) " ")]
+        (condp = n
+            "332" (do (dosync (alter irc assoc-in
+                                     [:channels (nth more 1) :topic (apply str (drop 2 more))]))
+                      (recur (rest-irc-line irc)))
+            "353" (do (println "test\n\n")
+                      (dosync
+                       (alter irc update-in [:channels (nth more 1) :users]
+                              into (->> more (drop 3) parse-users)))
+                      (recur (rest-irc-line irc)))
+            "366" nil
+            "403" nil
+            (recur (rest-irc-line irc)))))
     res))
 
 (defn part-chan

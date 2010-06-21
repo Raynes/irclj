@@ -12,10 +12,8 @@
 			      "!channels" (send-message irc channel (apply str (interpose " " (:channels @irc))))
 			      "!whois" (println (whois irc (first more)))
 			      "!topic?" (doseq [x (vals (get-topic irc (first more)))] (println x))
+                              "!printirc" (println @irc)
 			      nil)))
-
-	    :on-join (fn [{:keys [irc channel]}]
-		       (send-message irc channel channel))
 	    :on-quit (fn [{:keys [nick reason irc]}] 
 		       (send-message irc "#irclj" (str nick " quit. His reason was: " reason)))
 	    :on-part (fn [{:keys [nick reason channel irc]}]
@@ -24,6 +22,6 @@
 			 (send-message irc channel (str "you said " message)))})
 
 (def bot (connect (create-irc {:name "ircljbot" :server "irc.freenode.net" :fnmap fnmap}) 
-		  :channels ["#()" "#irclj"]))
+		  :channels [ "#irclj"]))
 (read-line)
 (close bot)
