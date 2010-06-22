@@ -242,6 +242,9 @@
 (defn- channel-or-nick [{:keys [channel nick irc] :as info-map}]
   (if (= channel (:name @irc)) (assoc info-map :channel nick) info-map))
 
+(defn- remove-nick [irc nick channel]
+  (dosync (alter irc update-in [:channels channel :users] dissoc nick)))
+
 (defn- handle 
   "Handles various IRC things. This is important."
   [{:keys [user nick ident doing channel message reason target mode] :as info} irc]
@@ -259,16 +262,20 @@
 		   :else (when-not-nil on-message (on-message (channel-or-nick info-map))))
 	"QUIT" (let [channels (extract-channels irc nick)]
                  (doseq [chan channels]
-                   (dosync (alter irc update-in [:channels chan :users] dissoc nick)))
+                   (remove-nick irc nick chan))
                  (when-not-nil on-quit (on-quit (assoc info-map :channels channels))))
 	"JOIN" (do
-                 (dosync (alter irc assoc-in [:channels channel :users] (parse-users nick)))
+                 (dosync (alter irc update-in [:channels channel :users] merge (parse-users nick)))
                  (when-not-nil on-join (on-join info-map)))
-	"PART" (when-not-nil on-part (on-part info-map))
+	"PART" (do
+                 (remove-nick irc nick channel)
+                 (when-not-nil on-part (on-part info-map)))
 	"NOTICE" (when-not-nil on-notice (on-notice info-map))
 	"MODE" (when-not-nil on-mode (on-mode info-map))
 	"TOPIC" (when-not-nil on-topic (on-topic info-map))
-	"KICK" (when-not-nil on-kick (on-kick info-map))
+	"KICK" (do
+                 (remove-nick irc target channel)
+                 (when-not-nil on-kick (on-kick info-map)))
 	nil)))
 
 (defn close
