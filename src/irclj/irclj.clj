@@ -91,7 +91,7 @@
 
 (defn- parse-users
   "Parses modes from user names."
-  [users]
+  [& users]
   (let [legal-symbols #{\! \@ \# \$ \% \& \*}]
     (into {} (for [user users]
                (if (legal-symbols (first user))
@@ -113,7 +113,7 @@
             "353" (do
                     (dosync
                      (alter irc update-in [:channels (nth more 2) :users]
-                            #(into (if % % {}) %2) (->> more (drop 3) parse-users)))
+                            #(into (if % % {}) %2) (->> more (drop 3) (apply parse-users))))
                     (recur (rest-irc-line irc)))
             "366" nil
             "403" nil
@@ -192,9 +192,15 @@
 (defn- extract-message [s]
   (apply str (rest (join " " s))))
 
+(defn- extract-channels
+  "Extracts all of the channels a user was in before he quit."
+  [irc user]
+  (for [[channel map] (:channels @irc) :when ((:users map) user)]
+    channel))
+
 (defn- mess-to-map
   "Parses a message into a map."
-  [[user doing & [channel & message :as more] :as everything]]
+  [[user doing & [channel & message :as more] :as everything] irc]
   (let [[nick ident hostmask] (.split user "\\!|\\@")
 	message-map {:user user
 		     :nick nick
@@ -251,8 +257,13 @@
 		   (on-action (channel-or-nick (->> :message info-map (drop 8) butlast (apply str) (assoc info-map :message))))
 		   (and (= (first message) \)) (handle-ctcp irc nick message)
 		   :else (when-not-nil on-message (on-message (channel-or-nick info-map))))
-	"QUIT" (when-not-nil on-quit (on-quit info-map))
-	"JOIN" (when-not-nil on-join (on-join info-map))
+	"QUIT" (let [channels (extract-channels irc nick)]
+                 (doseq [chan channels]
+                   (dosync (alter irc update-in [:channels chan :users] dissoc nick)))
+                 (when-not-nil on-quit (on-quit (assoc info-map :channels channels))))
+	"JOIN" (do
+                 (dosync (alter irc assoc-in [:channels channel :users] (parse-users nick)))
+                 (when-not-nil on-join (on-join info-map)))
 	"PART" (when-not-nil on-part (on-part info-map))
 	"NOTICE" (when-not-nil on-notice (on-notice info-map))
 	"MODE" (when-not-nil on-mode (on-mode info-map))
@@ -314,5 +325,5 @@
 				   (when channels
 				     (doseq [channel channels] 
 				       (join-chan irc channel)))))
-				:else (handle (mess-to-map words) irc))))))
+				:else (handle (mess-to-map words irc) irc))))))
     irc))
