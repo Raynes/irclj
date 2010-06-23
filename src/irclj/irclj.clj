@@ -247,7 +247,7 @@
 
 (defn- handle 
   "Handles various IRC things. This is important."
-  [{:keys [user nick ident doing channel message reason target mode] :as info} irc]
+  [{:keys [user nick ident doing channel message reason target mode topic] :as info} irc]
   (let [{{:keys [on-any on-action on-message on-quit on-part on-join
 		 on-notice on-mode on-topic on-kick]} :fnmap} @irc
 		 info-map (assoc info :irc irc)
@@ -272,7 +272,9 @@
                  (when-not-nil on-part (on-part info-map)))
 	"NOTICE" (when-not-nil on-notice (on-notice info-map))
 	"MODE" (when-not-nil on-mode (on-mode info-map))
-	"TOPIC" (when-not-nil on-topic (on-topic info-map))
+	"TOPIC" (do
+                  (dosync (alter irc assoc-in [:channels channel :topic] topic))
+                  (when-not-nil on-topic (on-topic info-map)))
 	"KICK" (do
                  (remove-nick irc target channel)
                  (when-not-nil on-kick (on-kick info-map)))
