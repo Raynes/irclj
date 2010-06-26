@@ -64,18 +64,21 @@
   "Takes an IRC, a message and a target to send it to, and sends an IRC message to
   target (user, channel). Filters out newlines and carriage returns."
   [irc target message]
-  (send-msg irc "PRIVMSG" (str target " :" (.replaceAll message "\n|\r" ""))))
+  (when (seq message)
+    (send-msg irc "PRIVMSG" (str target " :" (.replaceAll message "\n|\r" "")))))
 
 (defn send-notice
   "Takes an IRC, a message, and a target to send to, and sends a NOTICE to target
   (user, channel)."
   [irc target message]
-  (send-msg irc "NOTICE" (str target " :" message)))
+  (when (seq message)
+    (send-msg irc "NOTICE" (str target " :" message))))
 
 (defn send-action
   "Sends a CTCP ACTION to a target (user, channel)"
   [irc target message]
-  (send-msg irc "PRIVMSG" (str target " :" \ "ACTION " message \)))
+  (when (seq message)
+    (send-msg irc "PRIVMSG" (str target " :" \ "ACTION " message \))))
 
 (defn set-nick
   "Changes your nick."
