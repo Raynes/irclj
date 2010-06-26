@@ -89,13 +89,15 @@
   "Returns a normal line from IRC without the colon."
   [irc] (apply str (rest (read-irc-line @irc))))
 
+(def legal-symbols {"+o" \@ "+h" \% "+a" \& "+v" \+ "+q" \~})
+
 (defn- parse-users
   "Parses modes from user names."
   [& users]
-  (let [legal-symbols #{\! \@ \# \$ \% \& \*}]
+  (let [legal-symbols (zipmap (vals legal-symbols) (keys legal-symbols))]
     (into {} (for [user users]
                (if (legal-symbols (first user))
-                 [(apply str (rest user)) {:mode (first user)}]
+                 [(apply str (rest user)) {:mode (legal-symbols (first user))}]
                  [user {:mode :none}])))))
 
 (defn join-chan
@@ -229,8 +231,9 @@
 (defn- handle-ctcp
   "Takes a CTCP message and responds to it."
   [irc nick ctcp-s]
-  (let [ctcp (apply str (remove #(= \ %) ctcp-s))]
-    (when-not (= (first (.split ctcp " ")) "ACTION")
+  (let [ctcp (apply str (remove #(= \ %) ctcp-s))
+        first-part (first (.split ctcp " "))]
+    (when-not (or (= first-part "MY") (= first-part "ACTION"))
       (send-notice 
        irc nick (condp = ctcp
 		  "VERSION" "irclj version ohai"
@@ -257,7 +260,9 @@
     (condp = doing
 	"PRIVMSG" (cond
 		   (and on-action (.startsWith message "ACTION"))
-		   (on-action (channel-or-nick (->> :message info-map (drop 8) butlast (apply str) (assoc info-map :message))))
+		   (on-action
+                    (channel-or-nick
+                     (->> :message info-map (drop 8) butlast (apply str) (assoc info-map :message))))
 		   (and (= (first message) \)) (handle-ctcp irc nick message)
 		   :else (when-not-nil on-message (on-message (channel-or-nick info-map))))
 	"QUIT" (let [channels (extract-channels irc nick)]
@@ -271,7 +276,8 @@
                  (remove-nick irc nick channel)
                  (when-not-nil on-part (on-part info-map)))
 	"NOTICE" (when-not-nil on-notice (on-notice info-map))
-	"MODE" (when-not-nil on-mode (on-mode info-map))
+	"MODE" (do
+                 (when-not-nil on-mode (on-mode info-map)))
 	"TOPIC" (do
                   (dosync (alter irc assoc-in [:channels channel :topic] topic))
                   (when-not-nil on-topic (on-topic info-map)))
