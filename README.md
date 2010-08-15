@@ -48,6 +48,10 @@ All of this information is sent in a single map that you can destructure in the 
 
 Check the version number in project.clj, and then add irclj as a dependency in your project's project.clj, assuming you use Leiningen.
 
+## Getting Help
+
+We have an IRC channel over on freenode. It's #irclj. If you have any questions, drop in and we'll answer 'em for ya.
+
 ## License
 
 Licensed under the same thing Clojure is licensed under. The EPL, of which you can find a copy of here: http://www.eclipse.org/legal/epl-v10.html and at the root of this directory.

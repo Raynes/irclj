@@ -236,14 +236,15 @@
   [irc nick ctcp-s]
   (let [ctcp (apply str (remove #(= \ %) ctcp-s))
         first-part (first (.split ctcp " "))]
-    (when-not (or (= first-part "MY") (= first-part "ACTION"))
-      (send-notice 
-       irc nick (condp = ctcp
+    (send-notice 
+     irc nick (condp = first-part
 		  "VERSION" "irclj version ohai"
 		  "TIME"    "Time for you to SHUT THE FUCK UP."
 		  "FINGER"  "OMG, DADDY TOUCHED ME IN THE BAD PLACE.!"
-		  "PING" "PONG!"
-		  "Not supported.")))))
+		  "PING"    "PONG!"
+                  "MY"      ""
+                  "ACTION"  ""
+		  ""))))
 
 (defn- channel-or-nick [{:keys [channel nick irc] :as info-map}]
   (if (= channel (:name @irc)) (assoc info-map :channel nick) info-map))
