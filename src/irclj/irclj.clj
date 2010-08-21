@@ -106,24 +106,26 @@
 (defn join-chan
   "Joins a channel."
   [irc channel]
-  (let [res (send-msg irc "JOIN" (str ":" channel))]
-    (loop [line (rest-irc-line irc)]
-      (let [[_ n & more] (.split (apply str (remove #(= \: %) line)) " ")]
-        (condp = n
-            "332" (do
-                    (dosync (alter irc assoc-in
-                                   [:channels (nth more 1) :topic]
-                                   (apply str (interpose " " (drop 2 more)))))
-                    (recur (rest-irc-line irc)))
-            "353" (do
-                    (dosync
-                     (alter irc update-in [:channels (nth more 2) :users]
-                            #(into (if % % {}) %2) (->> more (drop 3) (apply parse-users))))
-                    (recur (rest-irc-line irc)))
-            "366" nil
-            "403" nil
-            (recur (rest-irc-line irc)))))
-    res))
+  (if (some #(= % channel) (:channels @irc))
+    res
+    (let [res (send-msg irc "JOIN" (str ":" channel))]
+      (loop [line (rest-irc-line irc)]
+        (let [[_ n & more] (.split (apply str (remove #(= \: %) line)) " ")]
+          (condp = n
+              "332" (do
+                      (dosync (alter irc assoc-in
+                                     [:channels (nth more 1) :topic]
+                                     (apply str (interpose " " (drop 2 more)))))
+                      (recur (rest-irc-line irc)))
+              "353" (do
+                      (dosync
+                       (alter irc update-in [:channels (nth more 2) :users]
+                              #(into (if % % {}) %2) (->> more (drop 3) (apply parse-users))))
+                      (recur (rest-irc-line irc)))
+              "366" nil
+              "403" nil
+              (recur (rest-irc-line irc)))))
+      res)))
 
 (defn part-chan
   "Leaves a channel."
