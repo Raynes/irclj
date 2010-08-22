@@ -20,7 +20,7 @@
   irclj, irclj, teh bawt, and 6667 respectively."
   [{:keys [name password server username port realname fnmap]
     :or {name "irclj" username "irclj" realname "teh bawt"
-	 port 6667}}]
+         port 6667}}]
   (IRC. name password server username port realname fnmap))
 
 (defn print-irc-line
@@ -35,11 +35,11 @@
   "Reads a line from IRC. Returns the string 'Socket Closed.' if the socket provided is closed."
   [{{sockin :sockin} :connection}]
   (try 
-   (binding [*in* sockin]
-     (let [line (read-line)]
-       (println line)
-       line))
-   (catch java.net.SocketException _ "Socket Closed.")))
+    (binding [*in* sockin]
+      (let [line (read-line)]
+        (println line)
+        line))
+    (catch java.net.SocketException _ "Socket Closed.")))
 
 (defn- strip-start
   "Strips everything away until the message."
@@ -153,12 +153,12 @@
   (send-msg irc "NAMES" channel)
   (loop [acc []]
     (let [rline (apply str (rest (read-irc-line @irc)))
-	  words (.split rline " ")
-	  num (second words)]
+          words (.split rline " ")
+          num (second words)]
       (when-not (= num "403")
-	(if (= num "353")
-	  (recur (conj acc (strip-start rline))) 
-	  (.split (apply str (interpose " " acc)) " "))))))
+        (if (= num "353")
+          (recur (conj acc (strip-start rline))) 
+          (.split (apply str (interpose " " acc)) " "))))))
 
 (defn get-topic
   "Gets the topic of a channel. Returns a map of :topic, :set-by, and :date
@@ -166,12 +166,12 @@
   [irc channel]
   (send-msg irc "TOPIC" channel)
   (let [rline (apply str (rest (read-irc-line @irc)))
-	words (.split rline " ")]
+        words (.split rline " ")]
     (when (= (second words) "332")
       (let [rline2 (.split (read-irc-line irc) " ")]
-	{:topic (apply str (rest (drop-while #(not= % \:) rline)))
-	 :set-by (last (butlast rline2))
-	 :date (last rline2)}))))
+        {:topic (apply str (rest (drop-while #(not= % \:) rline)))
+         :set-by (last (butlast rline2))
+         :date (last rline2)}))))
 
 (defn whois
   "Sends a whois request and returns a map with the contents mapped to keys.
@@ -181,12 +181,12 @@
   (send-msg irc "WHOIS" nick)
   (loop [acc []]
     (let [rline (apply str (rest (read-irc-line @irc)))
-	  words (.split rline " ")
-	  num (second words)]
+          words (.split rline " ")
+          num (second words)]
       (when-not (= num "401")
-	(if-not (= num "318")
-	  (recur (->> words (drop 4) (interpose " ") (apply str) (conj acc)))
-	  (zipmap [:user :channels :server :loggedinas] acc))))))
+        (if-not (= num "318")
+          (recur (->> words (drop 4) (interpose " ") (apply str) (conj acc)))
+          (zipmap [:user :channels :server :loggedinas] acc))))))
 
 (defn identify
   "Indentifies with the network."
@@ -206,24 +206,24 @@
   "Parses a message into a map."
   [[user doing & [channel & message :as more] :as everything] irc]
   (let [[nick ident hostmask] (.split user "\\!|\\@")
-	message-map {:user user
-		     :nick nick
-		     :hmask hostmask
-		     :ident ident
-		     :doing doing}]
+        message-map {:user user
+                     :nick nick
+                     :hmask hostmask
+                     :ident ident
+                     :doing doing}]
     (merge message-map
-	   {:raw-message (str ":" (apply str (interpose " " everything)))}
-	   (condp = doing
-	     "PRIVMSG" {:channel channel :message (extract-message message)}
-	     "QUIT" {:reason (extract-message more)}
-	     "JOIN" {:channel (apply str (rest channel))}
-	     "PART" {:channel channel :reason (extract-message message)}
-	     "NOTICE" {:target channel :message (extract-message message)}
-	     "MODE" (let [[mode target] message] {:channel channel :mode mode :target target})
-	     "TOPIC" {:channel channel :topic (extract-message message)}
-	     "KICK" (let [[target & message] message] 
-		      {:channel channel :target target :message (extract-message message)})
-	     {}))))
+           {:raw-message (str ":" (apply str (interpose " " everything)))}
+           (condp = doing
+               "PRIVMSG" {:channel channel :message (extract-message message)}
+               "QUIT" {:reason (extract-message more)}
+               "JOIN" {:channel (apply str (rest channel))}
+               "PART" {:channel channel :reason (extract-message message)}
+               "NOTICE" {:target channel :message (extract-message message)}
+               "MODE" (let [[mode target] message] {:channel channel :mode mode :target target})
+               "TOPIC" {:channel channel :topic (extract-message message)}
+               "KICK" (let [[target & message] message] 
+                        {:channel channel :target target :message (extract-message message)})
+               {}))))
 
 (defmacro- when-not-nil 
   "Like when-not, but checks if it's predicate is nil."
@@ -237,13 +237,13 @@
         first-part (first (.split ctcp " "))]
     (send-notice 
      irc nick (condp = first-part
-		  "VERSION" "irclj version ohai"
-		  "TIME"    "Time for you to SHUT THE FUCK UP."
-		  "FINGER"  "OMG, DADDY TOUCHED ME IN THE BAD PLACE.!"
-		  "PING"    "PONG!"
+                  "VERSION" "irclj version ohai"
+                  "TIME"    "Time for you to SHUT THE FUCK UP."
+                  "FINGER"  "OMG, DADDY TOUCHED ME IN THE BAD PLACE.!"
+                  "PING"    "PONG!"
                   "MY"      ""
                   "ACTION"  ""
-		  ""))))
+                  ""))))
 
 (defn- channel-or-nick [{:keys [channel nick irc] :as info-map}]
   (if (= channel (:name @irc)) (assoc info-map :channel nick) info-map))
@@ -254,46 +254,46 @@
 (defmulti handle (fn [irc fnm] (:doing irc)))
 
 (defmethod handle "PRIVMSG" [{:keys [nick message irc] :as info-map} {:keys [on-message on-action]}]
-           (cond
-            (and on-action (.startsWith message "ACTION"))
-            (on-action
-             (channel-or-nick
-              (->> :message info-map (drop 8) butlast (apply str) (assoc info-map :message))))
-            (and (= (first message) \)) (handle-ctcp irc nick message)
-            :else (when-not-nil on-message (on-message (channel-or-nick info-map)))))
+  (cond
+   (and on-action (.startsWith message "ACTION"))
+   (on-action
+    (channel-or-nick
+     (->> :message info-map (drop 8) butlast (apply str) (assoc info-map :message))))
+   (and (= (first message) \)) (handle-ctcp irc nick message)
+   :else (when-not-nil on-message (on-message (channel-or-nick info-map)))))
 
 (defmethod handle "QUIT" [{:keys [nick irc] :as info-map} {on-quit :on-quit}]
-           (let [channels (extract-channels irc nick)]
-                 (doseq [chan channels]
-                   (remove-nick irc nick chan))
-                 (when-not-nil on-quit (on-quit (assoc info-map :channels channels)))))
+  (let [channels (extract-channels irc nick)]
+    (doseq [chan channels]
+      (remove-nick irc nick chan))
+    (when-not-nil on-quit (on-quit (assoc info-map :channels channels)))))
 
 (defmethod handle "JOIN" [{:keys [nick channel irc] :as info-map} {on-join :on-join}]
-           (do
-             (dosync (alter irc update-in [:channels channel :users] merge (parse-users nick)))
-             (when-not-nil on-join (on-join info-map))))
+  (do
+    (dosync (alter irc update-in [:channels channel :users] merge (parse-users nick)))
+    (when-not-nil on-join (on-join info-map))))
 
 (defmethod handle "PART" [{:keys [nick irc channel] :as info-map} {on-part :on-part}]
-           (do
-             (if (= nick (:name @irc))
-               (do (remove-nick irc nick channel)))
-             (when-not-nil on-part (on-part info-map))))
+  (do
+    (if (= nick (:name @irc))
+      (do (remove-nick irc nick channel)))
+    (when-not-nil on-part (on-part info-map))))
 
 (defmethod handle "NOTICE" [info-map {on-notice :on-notice}]
-           (when-not-nil on-notice (on-notice info-map)))
+  (when-not-nil on-notice (on-notice info-map)))
 
 (defmethod handle "MODE" [info-map {on-mode :on-mode}]
-           (when-not-nil on-mode (on-mode info-map)))
+  (when-not-nil on-mode (on-mode info-map)))
 
 (defmethod handle "TOPIC" [{:keys [irc channel topic] :as info-map} {on-topic :on-topic}]
-           (do
-             (dosync (alter irc assoc-in [:channels channel :topic] topic))
-             (when-not-nil on-topic (on-topic info-map))))
+  (do
+    (dosync (alter irc assoc-in [:channels channel :topic] topic))
+    (when-not-nil on-topic (on-topic info-map))))
 
 (defmethod handle "KICK" [{:keys [irc target channel] :as info-map} {on-kick :on-kick}]
-           (do
-             (remove-nick irc target channel)
-             (when-not-nil on-kick (on-kick info-map))))
+  (do
+    (remove-nick irc target channel)
+    (when-not-nil on-kick (on-kick info-map))))
 
 (defmethod handle :default [& _] nil)
 
@@ -302,7 +302,7 @@
   [info irc]
   (let [{{:keys [on-any]} :fnmap} @irc
         info-map (assoc info :irc irc)]
-    ; This will be executed independent of what type of event comes in. Great for logging.
+                                        ; This will be executed independent of what type of event comes in. Great for logging.
     (when-not-nil on-any (on-any info-map))
     (handle info-map (:fnmap @irc))))
 
@@ -335,9 +335,9 @@
         out-encoding (or out-encoding encoding)
         in-encoding (or in-encoding encoding)
         sock (Socket. server port)
-	sockout (PrintWriter. (io/writer sock :encoding out-encoding) true)
-	sockin (io/reader sock :encoding in-encoding)
-	irc (ref (assoc botmap :connection {:sock sock :sockin sockin :sockout sockout}))]
+        sockout (PrintWriter. (io/writer sock :encoding out-encoding) true)
+        sockin (io/reader sock :encoding in-encoding)
+        irc (ref (assoc botmap :connection {:sock sock :sockin sockin :sockout sockout}))]
     (future
       (print-irc-line @irc (str "NICK " name))
       (print-irc-line @irc (str "USER " username " na na :" realname))
