@@ -1,12 +1,11 @@
-(ns   
-    #^{:author "Anthony Simpson (Rayne)"
-       :doc "A small IRC library to abstract over lower-level IRC connection handling."} 
-    irclj.irclj
-    (:use [clojure.string :only [join]]
-          [clojure.contrib.def :only [defmacro-]])
-    (:import (java.io OutputStreamWriter BufferedWriter PrintWriter 
-                      InputStreamReader BufferedReader)
-	     (java.net Socket)))
+(ns irclj.irclj
+  "A small IRC library to abstract over lower-level IRC connection handling."
+  {:author "Anthony Simpson (Rayne)"}
+  (:use [clojure.string :only [join]]
+        [clojure.contrib.def :only [defmacro-]])
+  (:require [clojure.java.io :as io])
+  (:import (java.io PrintWriter)
+           (java.net Socket)))
 
 (defrecord IRC [name password server username port realname fnmap])
 
@@ -330,36 +329,34 @@
   Connection encoding can be specified with :encoding, which defaults to UTF-8. Separate
   encodings for input and putput can be choosen with :in-encoding and :out-encoding, which
   both default to the value of :encoding."
-  [#^IRC {:keys [name password server username port realname fnmap] :as botmap}
+  [^IRC {:keys [name password server username port realname fnmap] :as botmap}
    & {:keys [channels identify-after-secs encoding out-encoding in-encoding]}]
   (let [encoding (or encoding default-encoding)
         out-encoding (or out-encoding encoding)
         in-encoding (or in-encoding encoding)
         sock (Socket. server port)
-	sockout (-> sock (.getOutputStream) (OutputStreamWriter. out-encoding)
-                    (BufferedWriter.) (PrintWriter. true))
-	sockin (-> sock (.getInputStream) (InputStreamReader. in-encoding)
-                   (BufferedReader.))
+	sockout (PrintWriter. (io/writer sock :encoding out-encoding) true)
+	sockin (io/reader sock :encoding in-encoding)
 	irc (ref (assoc botmap :connection {:sock sock :sockin sockin :sockout sockout}))]
-    (.start (Thread. (fn []
-		       (print-irc-line @irc (str "NICK " name))
-		       (print-irc-line @irc (str "USER " username " na na :" realname))
-		       (while (not (.isClosed sock))
-			      (let [rline (read-irc-line @irc)
-				    line (apply str (rest rline))
-				    words (.split line " ")]
-				(cond
-				 (.startsWith rline "PING") ; :>> 
-				 (do 
-				   (print-irc-line @irc (.replace rline "PING" "PONG")))
-				 (= (second words) "001")  ; :>>
-				 (do
-				   (when (and identify-after-secs password)
-				     (identify irc)
-				     (Thread/sleep (* 1000 identify-after-secs))
-				     (println "Sleeping while identification takes place."))
-				   (when channels
-				     (doseq [channel channels] 
-				       (join-chan irc channel)))))
-				:else (handle-events (mess-to-map words irc) irc))))))
+    (future
+      (print-irc-line @irc (str "NICK " name))
+      (print-irc-line @irc (str "USER " username " na na :" realname))
+      (while (not (.isClosed sock))
+        (let [rline (read-irc-line @irc)
+              line (apply str (rest rline))
+              words (.split line " ")]
+          (cond
+           (.startsWith rline "PING")    ; :>> 
+           (do 
+             (print-irc-line @irc (.replace rline "PING" "PONG")))
+           (= (second words) "001")      ; :>>
+           (do
+             (when (and identify-after-secs password)
+               (identify irc)
+               (Thread/sleep (* 1000 identify-after-secs))
+               (println "Sleeping while identification takes place."))
+             (when channels
+               (doseq [channel channels] 
+                 (join-chan irc channel)))))
+          :else (handle-events (mess-to-map words irc) irc))))
     irc))
