@@ -91,38 +91,11 @@
   "Returns a normal line from IRC without the colon."
   [irc] (apply str (rest (read-irc-line @irc))))
 
-(def legal-symbols {"+o" \@ "+h" \% "+a" \& "+v" \+ "+q" \~})
-
-(defn- parse-users
-  "Parses modes from user names."
-  [& users]
-  (let [legal-symbols (zipmap (vals legal-symbols) (keys legal-symbols))]
-    (into {} (for [user users]
-               (if (legal-symbols (first user))
-                 [(apply str (rest user)) {:mode (legal-symbols (first user))}]
-                 [user {:mode :none}])))))
-
 (defn join-chan
   "Joins a channel."
-  [irc channel]
+  [irc channel & [key]]
   (when-not (some #(= % channel) (:channels @irc))
-    (let [res (send-msg irc "JOIN" (str ":" channel))]
-      (loop [line (rest-irc-line irc)]
-        (let [[_ n & more] (.split (apply str (remove #(= \: %) line)) " ")]
-          (condp = n
-              "332" (do
-                      (dosync (alter irc assoc-in
-                                     [:channels (nth more 1) :topic]
-                                     (apply str (interpose " " (drop 2 more)))))
-                      (recur (rest-irc-line irc)))
-              "353" (do
-                      (dosync
-                       (alter irc update-in [:channels (nth more 2) :users]
-                              #(into (if % % {}) %2) (->> more (drop 3) (apply parse-users))))
-                      (recur (rest-irc-line irc)))
-              "366" nil
-              "403" nil
-              (recur (rest-irc-line irc))))))))
+    (send-msg irc "JOIN" (if key (str channel " :" key) (str " :" channel)))))
 
 (defn part-chan
   "Leaves a channel."
@@ -202,6 +175,17 @@
   (for [[channel map] (:channels @irc) :when ((:users map) user)]
     channel))
 
+(def legal-symbols {"+o" \@ "+h" \% "+a" \& "+v" \+ "+q" \~})
+
+(defn- parse-users
+  "Parses modes from user names."
+  [& users]
+  (let [legal-symbols (zipmap (vals legal-symbols) (keys legal-symbols))]
+    (into {} (for [user users]
+               (if (legal-symbols (first user))
+                 [(apply str (rest user)) {:mode (legal-symbols (first user))}]
+                 [user {:mode :none}])))))
+
 (defn- mess-to-map
   "Parses a message into a map."
   [[user doing & [channel & message :as more] :as everything] irc]
@@ -223,6 +207,10 @@
                "TOPIC" {:channel channel :topic (extract-message message)}
                "KICK" (let [[target & message] message] 
                         {:channel channel :target target :message (extract-message message)})
+               "332" (let [[channel & message] message]
+                       {:channel channel :topic (extract-message message)})
+               "353" (let [[noclue channel & [fst & more]] message]
+                       {:channel channel :users (apply parse-users (join (rest fst)) more)})
                {}))))
 
 (defmacro- when-not-nil 
@@ -252,6 +240,14 @@
   (dosync (alter irc update-in [:channels channel :users] dissoc nick)))
 
 (defmulti handle (fn [irc fnm] (:doing irc)))
+
+(defmethod handle "353" [{:keys [irc channel users]} _]
+           (dosync
+            (alter irc update-in [:channels channel :users]
+                   #(into (or % {}) %2) users)))
+
+(defmethod handle "332" [{:keys [irc channel topic]} _]
+           (dosync (alter irc assoc-in [:channels channel :topic] topic)))
 
 (defmethod handle "PRIVMSG" [{:keys [nick message irc] :as info-map} {:keys [on-message on-action]}]
   (cond
@@ -356,7 +352,9 @@
                (Thread/sleep (* 1000 identify-after-secs))
                (println "Sleeping while identification takes place."))
              (when channels
-               (doseq [channel channels] 
-                 (join-chan irc channel)))))
+               (doseq [channel channels]
+                 (if (vector? channel)
+                   (join-chan irc (channel 0) (channel 1))
+                   (join-chan irc channel))))))
           :else (handle-events (mess-to-map words irc) irc))))
     irc))
