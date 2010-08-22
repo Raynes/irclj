@@ -2,8 +2,8 @@
     #^{:author "Anthony Simpson (Rayne)"
        :doc "A small IRC library to abstract over lower-level IRC connection handling."} 
     irclj.irclj
-    (:use (clojure.contrib [string :only (join)]
-                           [def :only (defmacro-)]))
+    (:use [clojure.string :only [join]]
+          [clojure.contrib.def :only [defmacro-]])
     (:import (java.io OutputStreamWriter BufferedWriter PrintWriter 
                       InputStreamReader BufferedReader)
 	     (java.net Socket)))
@@ -106,8 +106,7 @@
 (defn join-chan
   "Joins a channel."
   [irc channel]
-  (if (some #(= % channel) (:channels @irc))
-    res
+  (when-not (some #(= % channel) (:channels @irc))
     (let [res (send-msg irc "JOIN" (str ":" channel))]
       (loop [line (rest-irc-line irc)]
         (let [[_ n & more] (.split (apply str (remove #(= \: %) line)) " ")]
@@ -124,8 +123,7 @@
                       (recur (rest-irc-line irc)))
               "366" nil
               "403" nil
-              (recur (rest-irc-line irc)))))
-      res)))
+              (recur (rest-irc-line irc))))))))
 
 (defn part-chan
   "Leaves a channel."
@@ -254,43 +252,60 @@
 (defn- remove-nick [irc nick channel]
   (dosync (alter irc update-in [:channels channel :users] dissoc nick)))
 
-(defn- handle 
-  "Handles various IRC things. This is important."
-  [{:keys [user nick ident doing channel message reason target mode topic] :as info} irc]
-  (let [{{:keys [on-any on-action on-message on-quit on-part on-join
-		 on-notice on-mode on-topic on-kick]} :fnmap} @irc
-		 info-map (assoc info :irc irc)
-		 is-action (when (seq message) (.startsWith message "ACTION"))]
-    ; This will be executed independent of what type of event comes in. Great for logging.
-    (when-not-nil on-any (on-any info-map))
-    (condp = doing
-	"PRIVMSG" (cond
-		   (and on-action (.startsWith message "ACTION"))
-		   (on-action
-                    (channel-or-nick
-                     (->> :message info-map (drop 8) butlast (apply str) (assoc info-map :message))))
-		   (and (= (first message) \)) (handle-ctcp irc nick message)
-		   :else (when-not-nil on-message (on-message (channel-or-nick info-map))))
-	"QUIT" (let [channels (extract-channels irc nick)]
+(defmulti handle (fn [irc fnm] (:doing irc)))
+
+(defmethod handle "PRIVMSG" [{:keys [nick message irc] :as info-map} {:keys [on-message on-action]}]
+           (cond
+            (and on-action (.startsWith message "ACTION"))
+            (on-action
+             (channel-or-nick
+              (->> :message info-map (drop 8) butlast (apply str) (assoc info-map :message))))
+            (and (= (first message) \)) (handle-ctcp irc nick message)
+            :else (when-not-nil on-message (on-message (channel-or-nick info-map)))))
+
+(defmethod handle "QUIT" [{:keys [nick irc] :as info-map} {on-quit :on-quit}]
+           (let [channels (extract-channels irc nick)]
                  (doseq [chan channels]
                    (remove-nick irc nick chan))
-                 (when-not-nil on-quit (on-quit (assoc info-map :channels channels))))
-	"JOIN" (do
-                 (dosync (alter irc update-in [:channels channel :users] merge (parse-users nick)))
-                 (when-not-nil on-join (on-join info-map)))
-	"PART" (do
-                 (remove-nick irc nick channel)
-                 (when-not-nil on-part (on-part info-map)))
-	"NOTICE" (when-not-nil on-notice (on-notice info-map))
-	"MODE" (do
-                 (when-not-nil on-mode (on-mode info-map)))
-	"TOPIC" (do
-                  (dosync (alter irc assoc-in [:channels channel :topic] topic))
-                  (when-not-nil on-topic (on-topic info-map)))
-	"KICK" (do
-                 (remove-nick irc target channel)
-                 (when-not-nil on-kick (on-kick info-map)))
-	nil)))
+                 (when-not-nil on-quit (on-quit (assoc info-map :channels channels)))))
+
+(defmethod handle "JOIN" [{:keys [nick channel irc] :as info-map} {on-join :on-join}]
+           (do
+             (dosync (alter irc update-in [:channels channel :users] merge (parse-users nick)))
+             (when-not-nil on-join (on-join info-map))))
+
+(defmethod handle "PART" [{:keys [nick irc channel] :as info-map} {on-part :on-part}]
+           (do
+             (if (= nick (:name @irc))
+               (do (remove-nick irc nick channel)))
+             (when-not-nil on-part (on-part info-map))))
+
+(defmethod handle "NOTICE" [info-map {on-notice :on-notice}]
+           (when-not-nil on-notice (on-notice info-map)))
+
+(defmethod handle "MODE" [info-map {on-mode :on-mode}]
+           (when-not-nil on-mode (on-mode info-map)))
+
+(defmethod handle "TOPIC" [{:keys [irc channel topic] :as info-map} {on-topic :on-topic}]
+           (do
+             (dosync (alter irc assoc-in [:channels channel :topic] topic))
+             (when-not-nil on-topic (on-topic info-map))))
+
+(defmethod handle "KICK" [{:keys [irc target channel] :as info-map} {on-kick :on-kick}]
+           (do
+             (remove-nick irc target channel)
+             (when-not-nil on-kick (on-kick info-map))))
+
+(defmethod handle :default [& _] nil)
+
+(defn- handle-events
+  "Handles various IRC things. This is important."
+  [info irc]
+  (let [{{:keys [on-any]} :fnmap} @irc
+        info-map (assoc info :irc irc)]
+    ; This will be executed independent of what type of event comes in. Great for logging.
+    (when-not-nil on-any (on-any info-map))
+    (handle info-map (:fnmap @irc))))
 
 (defn close
   "Closes an IRC connection (including the socket)."
@@ -346,5 +361,5 @@
 				   (when channels
 				     (doseq [channel channels] 
 				       (join-chan irc channel)))))
-				:else (handle (mess-to-map words irc) irc))))))
+				:else (handle-events (mess-to-map words irc) irc))))))
     irc))
