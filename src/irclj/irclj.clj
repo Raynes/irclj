@@ -77,7 +77,7 @@
   "Sends a CTCP ACTION to a target (user, channel)"
   [irc target message]
   (when (seq message)
-    (send-msg irc "PRIVMSG" (str target " :" \ "ACTION " message \))))
+    (send-msg irc "PRIVMSG" (str target " :" \u0001 "ACTION " message \u0001))))
 
 (defn set-nick
   "Changes your nick."
@@ -233,7 +233,7 @@
 (defn- handle-ctcp
   "Takes a CTCP message and responds to it."
   [irc nick ctcp-s]
-  (let [ctcp (apply str (remove #(= \ %) ctcp-s))
+  (let [ctcp (apply str (remove #(= \u0001 %) ctcp-s))
         first-part (first (.split ctcp " "))]
     (send-notice 
      irc nick (condp = first-part
@@ -255,11 +255,11 @@
 
 (defmethod handle "PRIVMSG" [{:keys [nick message irc] :as info-map} {:keys [on-message on-action]}]
   (cond
-   (and on-action (.startsWith message "ACTION"))
+   (and on-action (.startsWith message "\u0001ACTION"))
    (on-action
     (channel-or-nick
      (->> :message info-map (drop 8) butlast (apply str) (assoc info-map :message))))
-   (and (= (first message) \)) (handle-ctcp irc nick message)
+   (and (= (first message) \u0001)) (handle-ctcp irc nick message)
    :else (when-not-nil on-message (on-message (channel-or-nick info-map)))))
 
 (defmethod handle "QUIT" [{:keys [nick irc] :as info-map} {on-quit :on-quit}]
