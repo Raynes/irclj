@@ -106,9 +106,7 @@
 (defn part-chan
   "Leaves a channel."
   [irc channel & {reason :reason}]
-  (let [res (send-msg irc "PART" channel)]
-    (dosync (alter irc assoc :channels (remove #(= % channel) (:channels @irc))))
-    res))
+  (send-msg irc "PART" channel))
 
 (defn set-mode
   "Set modes."
@@ -228,6 +226,9 @@
 (defn- remove-nick [irc nick channel]
   (dosync (alter irc update-in [:channels channel :users] dissoc nick)))
 
+(defn- remove-channel [irc channel]
+  (dosync (alter irc update-in [:channels] dissoc channel)))
+
 (defmulti handle (fn [irc fnm] (:doing irc)))
 
 (defmethod handle "001" [{:keys [irc] :as info-map} {on-connect :on-connect}]
@@ -269,7 +270,8 @@
 (defmethod handle "PART" [{:keys [nick irc channel] :as info-map} {on-part :on-part}]
   (do
     (if (= nick (:name @irc))
-      (do (remove-nick irc nick channel)))
+      (remove-channel irc channel)
+      (remove-nick irc nick channel))
     (when on-part (on-part info-map))))
 
 (defmethod handle "NOTICE" [info-map {on-notice :on-notice}]
@@ -284,9 +286,10 @@
     (when on-topic (on-topic info-map))))
 
 (defmethod handle "KICK" [{:keys [irc target channel] :as info-map} {on-kick :on-kick}]
-  (do
-    (remove-nick irc target channel)
-    (when on-kick (on-kick info-map))))
+  (if (= target (:name @irc))
+    (remove-channel irc channel)
+    (remove-nick irc target channel))
+  (when on-kick (on-kick info-map)))
 
 (defmethod handle :default [& _] nil)
 
