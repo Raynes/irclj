@@ -106,7 +106,8 @@
 (defn part-chan
   "Leaves a channel."
   [irc channel & {reason :reason}]
-  (send-msg irc "PART" channel))
+  (println reason)
+  (send-msg irc "PART" (if reason (str channel " :" reason) channel)))
 
 (defn set-mode
   "Set modes."

@@ -8,6 +8,7 @@
 			      "!setmode" (set-mode irc channel (first more) (second more))
 			      "!join" (join-chan irc (first more))
 			      "!part" (part-chan irc (first more))
+                              "!part2" (part-chan irc (first more) :reason "Cause I feel like it.")
 			      "!names" (get-names irc (first more))
 			      "!channels" (send-message irc channel (apply str (interpose " " (:channels @irc))))
 			      "!whois" (println (whois irc (first more)))
