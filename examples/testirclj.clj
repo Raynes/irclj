@@ -19,7 +19,8 @@
 	    :on-part (fn [{:keys [nick reason channel irc]}]
 		       (send-message irc channel (str nick " parted. Reason: " reason)))
 	    :on-action (fn [{:keys [nick message reason channel irc]}]
-			 (send-message irc channel (str "you said " message)))})
+			 (send-message irc channel (str "you said " message)))
+            :on-connect (fn [_] (println "\n\nON-CONNECT TRIGGERED.\n\n"))})
 
 (def bot (connect (create-irc {:name "ircljbot" :server "irc.freenode.net" :fnmap fnmap}) 
 		  :channels ["#()" "#irclj" ["#keyed" "secret"]]))
