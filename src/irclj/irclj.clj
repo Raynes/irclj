@@ -1,7 +1,7 @@
 (ns irclj.irclj
   "A small IRC library to abstract over lower-level IRC connection handling."
   {:author "Anthony Simpson (Rayne)"}
-  (:use [clojure.string :only [join]]
+  (:use [clojure.string :only [join split]]
         [clojure.contrib.def :only [defmacro-]])
   (:require [clojure.java.io :as io])
   (:import (java.io PrintWriter)
@@ -134,17 +134,8 @@
           (.split (apply str (interpose " " acc)) " "))))))
 
 (defn get-topic
-  "Gets the topic of a channel. Returns a map of :topic, :set-by, and :date
-  (haven't quite worked date out yet). If the channel doesn't exist, returns nil."
-  [irc channel]
-  (send-msg irc "TOPIC" channel)
-  (let [rline (apply str (rest (read-irc-line @irc)))
-        words (.split rline " ")]
-    (when (= (second words) "332")
-      (let [rline2 (.split (read-irc-line irc) " ")]
-        {:topic (apply str (rest (drop-while #(not= % \:) rline)))
-         :set-by (last (butlast rline2))
-         :date (last rline2)}))))
+  "Requests TOPIC. The topic for this channel will be updated in the IRC map."
+  [irc channel] (send-msg irc "TOPIC" channel))
 
 (defn whois
   "Sends a whois request and returns a map with the contents mapped to keys.
@@ -186,7 +177,7 @@
                  [(apply str (rest user)) {:mode (legal-symbols (first user))}]
                  [user {:mode :none}])))))
 
-(defn- mess-to-map
+(defn- string-to-map
   "Parses a message into a map."
   [[user doing & [channel & message :as more] :as everything] irc]
   (let [[nick ident hostmask] (.split user "\\!|\\@")
@@ -194,24 +185,28 @@
                      :nick nick
                      :hmask hostmask
                      :ident ident
-                     :doing doing}]
+                     :doing (if (= "PING" user) "PING" doing)}]
     (merge message-map
-           {:raw-message (str ":" (apply str (interpose " " everything)))}
-           (condp = doing
-               "PRIVMSG" {:channel channel :message (extract-message message)}
-               "QUIT" {:reason (extract-message more)}
-               "JOIN" {:channel (apply str (rest channel))}
-               "PART" {:channel channel :reason (extract-message message)}
-               "NOTICE" {:target channel :message (extract-message message)}
-               "MODE" (let [[mode target] message] {:channel channel :mode mode :target target})
-               "TOPIC" {:channel channel :topic (extract-message message)}
-               "KICK" (let [[target & message] message] 
-                        {:channel channel :target target :message (extract-message message)})
-               "332" (let [[channel & message] message]
-                       {:channel channel :topic (extract-message message)})
-               "353" (let [[noclue channel & [fst & more]] message]
-                       {:channel channel :users (apply parse-users (join (rest fst)) more)})
-               {}))))
+           {:raw-message
+            (let [rm (apply str (interpose " " everything))]
+              (if (= \: (first rm)) rm (str ":" rm)))}
+           (if (= user "PING")
+             {:ping (join " " (remove nil? everything))}
+             (condp = doing
+                 "PRIVMSG" {:channel channel :message (extract-message message)}
+                 "QUIT" {:reason (extract-message more)}
+                 "JOIN" {:channel (apply str (rest channel))}
+                 "PART" {:channel channel :reason (extract-message message)}
+                 "NOTICE" {:target channel :message (extract-message message)}
+                 "MODE" (let [[mode target] message] {:channel channel :mode mode :target target})
+                 "TOPIC" {:channel channel :topic (extract-message message)}
+                 "KICK" (let [[target & message] message] 
+                          {:channel channel :target target :message (extract-message message)})
+                 "332" (let [[channel & message] message]
+                         {:channel channel :topic (extract-message message)})
+                 "353" (let [[noclue channel & [fst & more]] message]
+                         {:channel channel :users (apply parse-users (join (rest fst)) more)})
+                 {})))))
 
 (defmacro- when-not-nil 
   "Like when-not, but checks if it's predicate is nil."
@@ -229,8 +224,6 @@
                   "TIME"    "Time for you to SHUT THE FUCK UP."
                   "FINGER"  "OMG, DADDY TOUCHED ME IN THE BAD PLACE.!"
                   "PING"    "PONG!"
-                  "MY"      ""
-                  "ACTION"  ""
                   ""))))
 
 (defn- channel-or-nick [{:keys [channel nick irc] :as info-map}]
@@ -241,13 +234,16 @@
 
 (defmulti handle (fn [irc fnm] (:doing irc)))
 
+(defmethod handle "PING" [{:keys [irc ping]} _]
+           (print-irc-line @irc (.replace ping "PING" "PONG")))
+
 (defmethod handle "353" [{:keys [irc channel users]} _]
-           (dosync
-            (alter irc update-in [:channels channel :users]
-                   #(into (or % {}) %2) users)))
+ (dosync
+  (alter irc update-in [:channels channel :users]
+         #(into (or % {}) %2) users)))
 
 (defmethod handle "332" [{:keys [irc channel topic]} _]
-           (dosync (alter irc assoc-in [:channels channel :topic] topic)))
+  (dosync (alter irc assoc-in [:channels channel :topic] topic)))
 
 (defmethod handle "PRIVMSG" [{:keys [nick message irc] :as info-map} {:keys [on-message on-action]}]
   (cond
@@ -298,7 +294,6 @@
   [info irc]
   (let [{{:keys [on-any]} :fnmap} @irc
         info-map (assoc info :irc irc)]
-                                        ; This will be executed independent of what type of event comes in. Great for logging.
     (when-not-nil on-any (on-any info-map))
     (handle info-map (:fnmap @irc))))
 
@@ -340,11 +335,8 @@
       (while (not (.isClosed sock))
         (let [rline (read-irc-line @irc)
               line (apply str (rest rline))
-              words (.split line " ")]
+              words (split line #" ")]
           (cond
-           (.startsWith rline "PING")    ; :>> 
-           (do 
-             (print-irc-line @irc (.replace rline "PING" "PONG")))
            (= (second words) "001")      ; :>>
            (do
              (when (and identify-after-secs password)
@@ -356,5 +348,5 @@
                  (if (vector? channel)
                    (join-chan irc (channel 0) (channel 1))
                    (join-chan irc channel))))))
-          :else (handle-events (mess-to-map words irc) irc))))
+          :else (handle-events (string-to-map (if (= \: (first rline)) words (split rline #" ")) irc) irc))))
     irc))
