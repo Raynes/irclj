@@ -1,13 +1,13 @@
 (ns irclj.irclj
   "A small IRC library to abstract over lower-level IRC connection handling."
   {:author "Anthony Simpson (Rayne)"}
-  (:use [clojure.string :only [join split]]
+  (:use [clojure [stacktrace :only [print-throwable]] [string :only [join split]]]
         [clojure.contrib.def :only [defmacro-]])
   (:require [clojure.java.io :as io])
   (:import (java.io PrintWriter)
            (java.net Socket)))
 
-(defrecord IRC [name password server username port realname fnmap ctcp-map])
+(defrecord IRC [name password server username port realname fnmap ctcp-map catch-exceptions?])
 
 ;; Other specialized encodings (e.g. for cyrillic or latin characters with diacritics)
 ;; might actually still be the more common ones, but UTF-8 works/breaks equally for
@@ -22,12 +22,13 @@
 
 (defn create-irc 
   "Function to create an IRC(bot). You need to at most supply a server and fnmap.
-  If you don't supply a name, username, realname, ctcp-map, or port, they will default to
-  irclj, irclj, teh bawt, 6667, and default-ctcp-map respectively."
-  [{:keys [name password server username port realname fnmap ctcp-map]
+  If you don't supply a name, username, realname, ctcp-map, port, or catche-xceptions?,
+  they will default to irclj, irclj, teh bawt, 6667, default-ctcp-map, and true
+  respectively."
+  [{:keys [name password server username port realname fnmap ctcp-map catch-exceptions?]
     :or {name "irclj" username "irclj" realname "teh bawt"
-         port 6667 ctcp-map default-ctcp-map}}]
-  (IRC. name password server username port realname fnmap ctcp-map))
+         port 6667 ctcp-map default-ctcp-map catch-exceptions? true}}]
+  (IRC. name password server username port realname fnmap ctcp-map catch-exceptions?))
 
 (defn print-irc-line
   "Prints a line of text to an IRC connection."
@@ -300,7 +301,14 @@
   (let [{{:keys [on-any]} :fnmap} @irc
         info-map (assoc info :irc irc)]
     (when on-any (on-any info-map))
-    (handle info-map (:fnmap @irc))))
+    (try (handle info-map (:fnmap @irc))
+         (catch Exception e
+           (if (:catch-exceptions? @irc)
+             (println "\n======================================================\n"
+                      "An error has occurred in the" (:doing info) "handler.\n\n"
+                      (with-out-str (print-throwable e))
+                      "\n======================================================\n")
+             (throw e))))))
 
 (defn close
   "Closes an IRC connection (including the socket)."
@@ -336,24 +344,26 @@
         irc (ref (assoc botmap
                    :connection {:sock sock :sockin sockin :sockout sockout}
                    :connected? false))]
-    (future
-      (print-irc-line @irc (str "NICK " name))
-      (print-irc-line @irc (str "USER " username " na na :" realname))
-      (while (not (.isClosed sock))
-        (let [rline (read-irc-line @irc)
-              line (apply str (rest rline))
-              words (split line #" ")]
-          (if (= (second words) "001")
-            (do
-              (handle-events (string-to-map words irc) irc)
-              (when (and identify-after-secs password)
-                (identify irc)
-                (Thread/sleep (* 1000 identify-after-secs))
-                (println "Sleeping while identification takes place."))
-              (when channels
-                (doseq [channel channels]
-                  (if (vector? channel)
-                    (join-chan irc (channel 0) (channel 1))
-                    (join-chan irc channel))))))
-          (handle-events (string-to-map (if (= \: (first rline)) words (split rline #" ")) irc) irc))))
-    irc))
+    (.start
+     (Thread.
+      (fn []
+        (print-irc-line @irc (str "NICK " name))
+        (print-irc-line @irc (str "USER " username " na na :" realname))
+        (while (not (.isClosed sock))
+          (let [rline (read-irc-line @irc)
+                line (apply str (rest rline))
+                words (split line #" ")]
+            (if (= (second words) "001")
+              (do
+                (handle-events (string-to-map words irc) irc)
+                (when (and identify-after-secs password)
+                  (identify irc)
+                  (Thread/sleep (* 1000 identify-after-secs))
+                  (println "Sleeping while identification takes place."))
+                (when channels
+                  (doseq [channel channels]
+                    (if (vector? channel)
+                      (join-chan irc (channel 0) (channel 1))
+                      (join-chan irc channel))))))
+            (handle-events (string-to-map (if (= \: (first rline)) words (split rline #" ")) irc) irc)))
+        irc)))))
