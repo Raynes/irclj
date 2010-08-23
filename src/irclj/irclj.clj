@@ -208,11 +208,6 @@
                          {:channel channel :users (apply parse-users (join (rest fst)) more)})
                  {})))))
 
-(defmacro- when-not-nil 
-  "Like when-not, but checks if it's predicate is nil."
-  [pred & body]
-  `(when-not (nil? ~pred) ~@body))
-
 (defn- handle-ctcp
   "Takes a CTCP message and responds to it."
   [irc nick ctcp-s]
@@ -234,8 +229,13 @@
 
 (defmulti handle (fn [irc fnm] (:doing irc)))
 
+(defmethod handle "001" [{:keys [irc] :as info-map} {on-connect :on-connect}]
+           (do
+             (dosync (alter irc assoc :connected? true))
+             (when on-connect (on-connect info-map))))
+
 (defmethod handle "PING" [{:keys [irc ping]} _]
-           (print-irc-line @irc (.replace ping "PING" "PONG")))
+  (print-irc-line @irc (.replace ping "PING" "PONG")))
 
 (defmethod handle "353" [{:keys [irc channel users]} _]
  (dosync
@@ -252,40 +252,40 @@
     (channel-or-nick
      (->> :message info-map (drop 8) butlast (apply str) (assoc info-map :message))))
    (and (= (first message) \u0001)) (handle-ctcp irc nick message)
-   :else (when-not-nil on-message (on-message (channel-or-nick info-map)))))
+   :else (when on-message (on-message (channel-or-nick info-map)))))
 
 (defmethod handle "QUIT" [{:keys [nick irc] :as info-map} {on-quit :on-quit}]
   (let [channels (extract-channels irc nick)]
     (doseq [chan channels]
       (remove-nick irc nick chan))
-    (when-not-nil on-quit (on-quit (assoc info-map :channels channels)))))
+    (when on-quit (on-quit (assoc info-map :channels channels)))))
 
 (defmethod handle "JOIN" [{:keys [nick channel irc] :as info-map} {on-join :on-join}]
   (do
     (dosync (alter irc update-in [:channels channel :users] merge (parse-users nick)))
-    (when-not-nil on-join (on-join info-map))))
+    (when on-join (on-join info-map))))
 
 (defmethod handle "PART" [{:keys [nick irc channel] :as info-map} {on-part :on-part}]
   (do
     (if (= nick (:name @irc))
       (do (remove-nick irc nick channel)))
-    (when-not-nil on-part (on-part info-map))))
+    (when on-part (on-part info-map))))
 
 (defmethod handle "NOTICE" [info-map {on-notice :on-notice}]
-  (when-not-nil on-notice (on-notice info-map)))
+  (when on-notice (on-notice info-map)))
 
 (defmethod handle "MODE" [info-map {on-mode :on-mode}]
-  (when-not-nil on-mode (on-mode info-map)))
+  (when on-mode (on-mode info-map)))
 
 (defmethod handle "TOPIC" [{:keys [irc channel topic] :as info-map} {on-topic :on-topic}]
   (do
     (dosync (alter irc assoc-in [:channels channel :topic] topic))
-    (when-not-nil on-topic (on-topic info-map))))
+    (when on-topic (on-topic info-map))))
 
 (defmethod handle "KICK" [{:keys [irc target channel] :as info-map} {on-kick :on-kick}]
   (do
     (remove-nick irc target channel)
-    (when-not-nil on-kick (on-kick info-map))))
+    (when on-kick (on-kick info-map))))
 
 (defmethod handle :default [& _] nil)
 
@@ -294,7 +294,7 @@
   [info irc]
   (let [{{:keys [on-any]} :fnmap} @irc
         info-map (assoc info :irc irc)]
-    (when-not-nil on-any (on-any info-map))
+    (when on-any (on-any info-map))
     (handle info-map (:fnmap @irc))))
 
 (defn close
@@ -328,7 +328,9 @@
         sock (Socket. server port)
         sockout (PrintWriter. (io/writer sock :encoding out-encoding) true)
         sockin (io/reader sock :encoding in-encoding)
-        irc (ref (assoc botmap :connection {:sock sock :sockin sockin :sockout sockout}))]
+        irc (ref (assoc botmap
+                   :connection {:sock sock :sockin sockin :sockout sockout}
+                   :connected? false))]
     (future
       (print-irc-line @irc (str "NICK " name))
       (print-irc-line @irc (str "USER " username " na na :" realname))
@@ -336,17 +338,17 @@
         (let [rline (read-irc-line @irc)
               line (apply str (rest rline))
               words (split line #" ")]
-          (cond
-           (= (second words) "001")      ; :>>
-           (do
-             (when (and identify-after-secs password)
-               (identify irc)
-               (Thread/sleep (* 1000 identify-after-secs))
-               (println "Sleeping while identification takes place."))
-             (when channels
-               (doseq [channel channels]
-                 (if (vector? channel)
-                   (join-chan irc (channel 0) (channel 1))
-                   (join-chan irc channel))))))
-          :else (handle-events (string-to-map (if (= \: (first rline)) words (split rline #" ")) irc) irc))))
+          (if (= (second words) "001")
+            (do
+              (handle-events (string-to-map words irc) irc)
+              (when (and identify-after-secs password)
+                (identify irc)
+                (Thread/sleep (* 1000 identify-after-secs))
+                (println "Sleeping while identification takes place."))
+              (when channels
+                (doseq [channel channels]
+                  (if (vector? channel)
+                    (join-chan irc (channel 0) (channel 1))
+                    (join-chan irc channel))))))
+          (handle-events (string-to-map (if (= \: (first rline)) words (split rline #" ")) irc) irc))))
     irc))
