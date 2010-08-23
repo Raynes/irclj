@@ -7,21 +7,27 @@
   (:import (java.io PrintWriter)
            (java.net Socket)))
 
-(defrecord IRC [name password server username port realname fnmap])
+(defrecord IRC [name password server username port realname fnmap ctcp-map])
 
 ;; Other specialized encodings (e.g. for cyrillic or latin characters with diacritics)
 ;; might actually still be the more common ones, but UTF-8 works/breaks equally for
 ;; everyone and could one day become the single standard encoding.
 (def default-encoding "UTF-8")
 
+(def default-ctcp-map
+    {"VERSION" "irclj version idontkeeptrack"
+     "TIME"    "Time for you to stop CTCPing"
+     "FINGER"  "How dare you!"
+     "PING"    "PONG!"})
+
 (defn create-irc 
   "Function to create an IRC(bot). You need to at most supply a server and fnmap.
-  If you don't supply a name, username, realname, or port, they will default to
-  irclj, irclj, teh bawt, and 6667 respectively."
-  [{:keys [name password server username port realname fnmap]
+  If you don't supply a name, username, realname, ctcp-map, or port, they will default to
+  irclj, irclj, teh bawt, 6667, and default-ctcp-map respectively."
+  [{:keys [name password server username port realname fnmap ctcp-map]
     :or {name "irclj" username "irclj" realname "teh bawt"
-         port 6667}}]
-  (IRC. name password server username port realname fnmap))
+         port 6667 ctcp-map default-ctcp-map}}]
+  (IRC. name password server username port realname fnmap ctcp-map))
 
 (defn print-irc-line
   "Prints a line of text to an IRC connection."
@@ -214,12 +220,7 @@
   (let [ctcp (apply str (remove #(= \u0001 %) ctcp-s))
         first-part (first (.split ctcp " "))]
     (send-notice 
-     irc nick (condp = first-part
-                  "VERSION" "irclj version ohai"
-                  "TIME"    "Time for you to SHUT THE FUCK UP."
-                  "FINGER"  "OMG, DADDY TOUCHED ME IN THE BAD PLACE.!"
-                  "PING"    "PONG!"
-                  ""))))
+     irc nick ((:ctcp-map @irc) first-part))))
 
 (defn- channel-or-nick [{:keys [channel nick irc] :as info-map}]
   (if (= channel (:name @irc)) (assoc info-map :channel nick) info-map))
