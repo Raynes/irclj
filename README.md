@@ -6,7 +6,7 @@ Irclj is a Clojure IRC library that might remind you of Pircbot to some extent. 
 
 See testirclj.clj in src/irclj for a tiny little example bot. For a larger, real-world example, see http://www.github.com/Raynes/sexpbot
 
-The first thing you do is define an IRC record with create-irc. It takes a map. You can supply a nick (name) for the bot, a password, a server, a username, a port, a realname, and a map of fns that will be called when certain things happen.
+The first thing you do is define an IRC record with create-irc. It takes a map. You can supply a nick (name) for the bot, a password, a server, a username, a port, a realname, and a map of fns that will be called when certain things happen. There are some other more advanced things you can supply. Check out it's arglist for details, or do `(doc create-irc)`.
 
 The fnmap can contain 0 or more functions. The functions need to be named specifically. Everytime something is triggered internally, one of the functions will be called. I'll list the supported "actions" and the corrosponding functions you need to define in fnmap if you wish to handle them specially.
 
@@ -19,13 +19,16 @@ The fnmap can contain 0 or more functions. The functions need to be named specif
     KICK ; on-kick
     TOPIC ; on-topic
     CTCP ACTION ; on-action
+    ERROR OCCURS ; on-error
+    ANYTHING EXCEPT ERROR OCCURS ; on-any
+    001 RECIEVED (BOT IS CONNECTED) ; on-connect
 
 You can supply none or as many (if you don't want to be useful ;)) of these as you like. If you define an on-message function in fnmap, and the irc connection/bot sees a PRIVMSG, that function will be called. Each function, when called, is passed a map. They supply different things in the map depending on what function was called. There are certain things that are always in the map regardless of what is called. These are:
 
-    :user ; The entire identification of the sender in the form of nick!ident@host/mask/here
-    :nick ; The user's nick
-    :hmask ; The user's hostmask
-    :ident ; The user's ident
+    :user ; The entire identification of the sender in the form of nick!ident@host/mask/here if relevant
+    :nick ; The user's nick if relevant
+    :hmask ; The user's hostmask if relevant
+    :ident ; The user's ident if relevant
     :doing ; The action that was triggered. One of the things listed above.
     :irc ; The IRC record reference. This is important. You need to pass this to IRC functions to do fun things.
 
@@ -41,6 +44,7 @@ And here are action specific map keys that are put in the map along with the key
     MODE ; :channel, :mode, :user
     KICK ; :channel, :target, :message
     TOPIC ; :channel, :topic
+    ERROR ; :error
 
 All of this information is sent in a single map that you can destructure in the functions in fn map. Simple, right? Well, I suck at explaining things, but looking at the example(s) in the /examples directory should help. You can also look at the bot that this library was originally created for, [sexpbot](http://github.com/Raynes/sexpbot). If you have any questions, you can find me on freenode, at #clojure, #clojure-casual, and #(code). If you have any questions or suggestions, feel free to hit me up with them.
 
