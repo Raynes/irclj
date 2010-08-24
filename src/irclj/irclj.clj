@@ -303,16 +303,18 @@
 (defn- handle-events
   "Handles various IRC things. This is important."
   [info irc]
-  (let [{{:keys [on-any]} :fnmap} @irc
+  (let [{{:keys [on-any on-error]} :fnmap} @irc
         info-map (assoc info :irc irc)]
     (when on-any (on-any info-map))
     (try (handle info-map (:fnmap @irc))
          (catch Exception e
            (if (:catch-exceptions? @irc)
-             (println "\n======================================================\n"
-                      "An error has occurred in the" (:doing info) "handler.\n\n"
-                      (with-out-str (print-throwable e))
-                      "\n======================================================\n")
+             (do
+               (println "\n======================================================\n"
+                        "An error has occurred in the" (:doing info) "handler.\n\n"
+                        (with-out-str (print-throwable e))
+                        "\n======================================================\n")
+               (when on-error (on-error (assoc info :irc irc :error e))))
              (throw e))))))
 
 (defn close
