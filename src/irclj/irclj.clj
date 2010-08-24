@@ -321,7 +321,7 @@
   "Closes an IRC connection (including the socket)."
   [irc]
   (let [{{:keys [sock sockout sockin]} :connection} @irc]
-    (push-irc-line @irc "QUIT")
+    (push-irc-line irc "QUIT")
     (.close sock)
     (.close sockin)
     (.close sockout)))
@@ -383,5 +383,5 @@
                     (if (vector? channel)
                       (join-chan irc (channel 0) (channel 1))
                       (join-chan irc channel))))))
-            (handle-events (string-to-map (if (= \: (first rline)) words (split rline #" ")) irc) irc)))
-        irc)))))
+            (handle-events (string-to-map (if (= \: (first rline)) words (split rline #" ")) irc) irc))))))
+    irc))
