@@ -5,9 +5,10 @@
         [clojure.contrib.def :only [defmacro-]])
   (:require [clojure.java.io :as io])
   (:import (java.io PrintWriter)
-           (java.net Socket)))
+           (java.net Socket)
+           java.util.concurrent.LinkedBlockingQueue))
 
-(defrecord IRC [name password server username port realname fnmap ctcp-map catch-exceptions?])
+(defrecord IRC [name password server username port realname fnmap ctcp-map catch-exceptions? delay-ms])
 
 ;; Other specialized encodings (e.g. for cyrillic or latin characters with diacritics)
 ;; might actually still be the more common ones, but UTF-8 works/breaks equally for
@@ -22,21 +23,27 @@
 
 (defn create-irc 
   "Function to create an IRC(bot). You need to at most supply a server and fnmap.
-  If you don't supply a name, username, realname, ctcp-map, port, or catche-xceptions?,
-  they will default to irclj, irclj, teh bawt, 6667, default-ctcp-map, and true
+  If you don't supply a name, username, realname, ctcp-map, port, limit, or catche-xceptions?,
+  they will default to irclj, irclj, teh bawt, 6667, default-ctcp-map, 1000, and true
   respectively."
-  [{:keys [name password server username port realname fnmap ctcp-map catch-exceptions?]
+  [{:keys [name password server username port realname fnmap ctcp-map catch-exceptions?
+           limit delay-ms]
     :or {name "irclj" username "irclj" realname "teh bawt"
-         port 6667 ctcp-map default-ctcp-map catch-exceptions? true}}]
-  (IRC. name password server username port realname fnmap ctcp-map catch-exceptions?))
+         port 6667 ctcp-map default-ctcp-map catch-exceptions? true
+         delay-ms 1000}}]
+  (IRC. name password server username port realname fnmap ctcp-map catch-exceptions? delay-ms))
 
-(defn print-irc-line
+(defn- print-irc-line [irc text]
+  (let [{{sockout :sockout} :connection} @irc]
+    (println (str ">>>" text))
+    (binding [*out* sockout] 
+      (println text)
+      (str sockout))))
+
+(defn push-irc-line
   "Prints a line of text to an IRC connection."
-  [{{sockout :sockout} :connection} text]
-  (println (str ">>>" text))
-  (binding [*out* sockout] 
-    (println text)
-    (str sockout)))
+  [irc text]
+  (.offer (:out-queue @irc) text))
 
 (defn read-irc-line
   "Reads a line from IRC. Returns the string 'Socket Closed.' if the socket provided is closed."
@@ -57,7 +64,7 @@
   "Utility function for sending raw messages. Don't use this function unless you're implementing
   a protocol function. Use send-message instead."
   [irc type message]
-  (print-irc-line @irc (str type " " message)))
+  (push-irc-line irc (str type " " message)))
 
 (defn send-raw-message
   "Takes an IRC, a message and a target to send it to, and sends an IRC message to
@@ -70,8 +77,7 @@
   "Takes an IRC, a message and a target to send it to, and sends an IRC message to
   target (user, channel). Filters out newlines and carriage returns."
   [irc target message]
-  (when (seq message)
-    (send-msg irc "PRIVMSG" (str target " :" (.replaceAll message "\n|\r" "")))))
+  (send-raw-message irc target (.replaceAll message "\n|\r" "")))
 
 (defn send-notice
   "Takes an IRC, a message, and a target to send to, and sends a NOTICE to target
@@ -83,8 +89,7 @@
 (defn send-action
   "Sends a CTCP ACTION to a target (user, channel)"
   [irc target message]
-  (when (seq message)
-    (send-msg irc "PRIVMSG" (str target " :" \u0001 "ACTION " message \u0001))))
+  (send-msg irc "PRIVMSG" (str target " :" \u0001 "ACTION " message \u0001)))
 
 (defn set-nick
   "Changes your nick."
@@ -239,7 +244,7 @@
              (when on-connect (on-connect info-map))))
 
 (defmethod handle "PING" [{:keys [irc ping]} _]
-  (print-irc-line @irc (.replace ping "PING" "PONG")))
+  (push-irc-line irc (.replace ping "PING" "PONG")))
 
 (defmethod handle "353" [{:keys [irc channel users]} _]
  (dosync
@@ -314,10 +319,20 @@
   "Closes an IRC connection (including the socket)."
   [irc]
   (let [{{:keys [sock sockout sockin]} :connection} @irc]
-    (print-irc-line @irc "QUIT")
+    (push-irc-line @irc "QUIT")
     (.close sock)
     (.close sockin)
     (.close sockout)))
+
+(defn- setup-queue [irc]
+  (let [q (java.util.concurrent.LinkedBlockingQueue.)]
+    (dosync (alter irc assoc :out-queue q))
+    (.start
+     (Thread.
+      (fn []
+        (while true
+          (Thread/sleep (:delay-ms @irc))
+          (print-irc-line irc (.take q))))))))
 
 (defn connect
   "Takes an IRC defrecord and optionally, a sequence of channels to join and
@@ -347,8 +362,9 @@
     (.start
      (Thread.
       (fn []
-        (print-irc-line @irc (str "NICK " name))
-        (print-irc-line @irc (str "USER " username " na na :" realname))
+        (setup-queue irc)
+        (push-irc-line irc (str "NICK " name))
+        (push-irc-line irc (str "USER " username " na na :" realname))
         (while (not (.isClosed sock))
           (let [rline (read-irc-line @irc)
                 line (apply str (rest rline))
