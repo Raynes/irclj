@@ -2,3 +2,5 @@ lib
 classes
 autodoc
 *jar
+pom.xml
+.cake
