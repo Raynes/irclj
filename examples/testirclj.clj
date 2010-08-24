@@ -22,7 +22,9 @@
 		       (send-message irc channel (str nick " parted. Reason: " reason)))
 	    :on-action (fn [{:keys [nick message reason channel irc]}]
 			 (send-message irc channel (str "you said " message)))
-            :on-connect (fn [_] (println "\n\nON-CONNECT TRIGGERED.\n\n"))})
+            :on-connect (fn [_] (println "\n\nON-CONNECT TRIGGERED.\n\n"))
+            :on-error (fn [{:keys [irc channel error doing]}]
+                        (send-message irc channel (str "While executing the " doing " handler, an error occurred: " (.getMessage error))))})
 
 (def bot (connect (create-irc {:name "ircljbot" :server "irc.freenode.net" :fnmap fnmap}) 
 		  :channels ["#()" "#irclj" ["#keyed" "secret"]]))
