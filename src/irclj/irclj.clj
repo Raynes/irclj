@@ -1,7 +1,10 @@
 (ns irclj.irclj
   "A small IRC library to abstract over lower-level IRC connection handling."
   {:author "Anthony Simpson (Rayne)"}
-  (:use [clojure [stacktrace :only [print-throwable]] [string :only [join split]]]
+  (:use [clojure
+         [set :only [rename-keys]]
+         [stacktrace :only [print-throwable]]
+         [string :only [join split]]]
         [clojure.contrib.def :only [defmacro-]])
   (:require [clojure.java.io :as io])
   (:import (java.io PrintWriter)
@@ -94,10 +97,7 @@
 (defn set-nick
   "Changes your nick."
   [irc nick]
-  (let [res (send-msg irc "NICK" nick)]
-    (when (= (second (.split (read-irc-line @irc) " ")) "NICK")
-      (dosync (alter irc assoc :name nick)))
-    res))
+  (send-msg irc "NICK" nick))
 
 (defn- rest-irc-line
   "Returns a normal line from IRC without the colon."
@@ -171,11 +171,10 @@
 (defn- extract-message [s]
   (apply str (rest (join " " s))))
 
-(defn- extract-channels
-  "Extracts all of the channels a user was in before he quit."
+(defn extract-channels
+  "Extracts all of the channels a user is in."
   [irc user]
-  (for [[channel map] (:channels @irc) :when ((:users map) user)]
-    channel))
+  (for [[channel map] (:channels @irc) :when ((:users map) user)] channel))
 
 (def legal-symbols {"+o" \@ "+h" \% "+a" \& "+v" \+ "+q" \~})
 
@@ -217,6 +216,7 @@
                          {:channel channel :topic (extract-message message)})
                  "353" (let [[noclue channel & [fst & more]] message]
                          {:channel channel :users (apply parse-users (join (rest fst)) more)})
+                 "NICK" {:new-nick (extract-message more)}
                  {})))))
 
 (defn- handle-ctcp
@@ -236,7 +236,16 @@
 (defn- remove-channel [irc channel]
   (dosync (alter irc update-in [:channels] dissoc channel)))
 
+(defn- replace-key)
+
 (defmulti handle (fn [irc fnm] (:doing irc)))
+
+(defmethod handle "NICK" [{:keys [irc nick new-nick]} {on-nick :on-nick}]
+           (println nick "\n" new-nick "\n" (extract-channels irc nick))
+           (dosync
+            (when (= nick (:name @irc)) (alter irc assoc :name new-nick))
+            (doseq [chan (extract-channels irc nick)]
+              (alter irc update-in [:channels chan :users] rename-keys {nick new-nick}))))
 
 (defmethod handle "001" [{:keys [irc] :as info-map} {on-connect :on-connect}]
            (do
