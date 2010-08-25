@@ -371,9 +371,9 @@
           (let [rline (read-irc-line @irc)
                 line (apply str (rest rline))
                 words (split line #" ")]
-            (if (= (second words) "001")
+            (handle-events (string-to-map (if (= \: (first rline)) words (split rline #" ")) irc) irc)
+            (when (= (second words) "001")
               (do
-                (handle-events (string-to-map words irc) irc)
                 (when (and identify-after-secs password)
                   (identify irc)
                   (Thread/sleep (* 1000 identify-after-secs))
@@ -382,6 +382,5 @@
                   (doseq [channel channels]
                     (if (vector? channel)
                       (join-chan irc (channel 0) (channel 1))
-                      (join-chan irc channel))))))
-            (handle-events (string-to-map (if (= \: (first rline)) words (split rline #" ")) irc) irc))))))
+                      (join-chan irc channel)))))))))))
     irc))
