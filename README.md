@@ -2,7 +2,7 @@
 
 Irclj is a Clojure IRC library that might remind you of Pircbot to some extent. I originally designed it to replace Pircbot in sexpbot, my Clojure IRC bot. I've already rewritten sexpbot to use the library, so it's probably the best usage example at this point.
 
-The library offers a pretty thorough bot framework. It offers flood protection that is essentially the same as Pircbot's, and various important features you'd expect out of such a library. It's designed so that it should be possible to use this library to create clients as well as IRC bots. The most crucial thing that I can think of that Irclj lacks is DCC support. Coming soon to an IRC bot near you.
+The library offers a pretty thorough bot framework. It offers flood protection that is essentially the same as Pircbot's, and various important features you'd expect out of such a library. It's designed so that it should be possible to use this library to create clients as well as IRC bots.
 
 ## Usage
 
