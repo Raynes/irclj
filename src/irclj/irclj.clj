@@ -337,12 +337,10 @@
 (defn- setup-queue [irc]
   (let [q (java.util.concurrent.LinkedBlockingQueue.)]
     (dosync (alter irc assoc :out-queue q))
-    (.start
-     (Thread.
-      (fn []
-        (while true
-          (Thread/sleep (:delay-ms @irc))
-          (print-irc-line irc (.take q))))))))
+    (future
+     (while true
+       (Thread/sleep (:delay-ms @irc))
+       (print-irc-line irc (.take q))))))
 
 (defn create-irc 
   "Function to create an IRC(bot). You need to at most supply a server and fnmap.
