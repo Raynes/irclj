@@ -7,9 +7,10 @@
          [string :only [join split]]]
         [clojure.contrib.def :only [defmacro-]])
   (:require [clojure.java.io :as io])
-  (:import (java.io PrintWriter)
-           (java.net Socket)
-           java.util.concurrent.LinkedBlockingQueue))
+  (:import java.io.PrintWriter
+           java.net.Socket
+           java.util.concurrent.LinkedBlockingQueue
+           java.util.Date))
 
 (defrecord IRC [name password server username port realname fnmap ctcp-map catch-exceptions? delay-ms])
 
@@ -17,24 +18,6 @@
 ;; might actually still be the more common ones, but UTF-8 works/breaks equally for
 ;; everyone and could one day become the single standard encoding.
 (def default-encoding "UTF-8")
-
-(def default-ctcp-map
-    {"VERSION" "irclj version idontkeeptrack"
-     "TIME"    "Time for you to stop CTCPing"
-     "FINGER"  "How dare you!"
-     "PING"    "PONG!"})
-
-(defn create-irc 
-  "Function to create an IRC(bot). You need to at most supply a server and fnmap.
-  If you don't supply a name, username, realname, ctcp-map, port, limit, or catche-xceptions?,
-  they will default to irclj, irclj, teh bawt, 6667, default-ctcp-map, 1000, and true
-  respectively."
-  [{:keys [name password server username port realname fnmap ctcp-map catch-exceptions?
-           limit delay-ms]
-    :or {name "irclj" username "irclj" realname "teh bawt"
-         port 6667 ctcp-map default-ctcp-map catch-exceptions? true
-         delay-ms 1000}}]
-  (IRC. name password server username port realname fnmap ctcp-map catch-exceptions? delay-ms))
 
 (defn- print-irc-line [irc text]
   (let [{{sockout :sockout} :connection} @irc]
@@ -219,13 +202,31 @@
                  "NICK" {:new-nick (extract-message more)}
                  {})))))
 
+(defn- send-ctcp [irc nick f ctcp & [message]]
+  (f irc nick (apply str (remove nil? ["\u0001" ctcp (when message (str \space message)) "\u0001"]))))
+
+(defn send-ctcp-request [irc nick ctcp & [message]]
+  "Sends a PRIVMSG ctcp request. ctcp is the ctcp you want to send (FINGER, PING, etc)
+  and message is an optional message to go after the CTCP and a space."
+  (send-ctcp irc nick send-message ctcp message))
+
+(defn send-ctcp-reply [irc nick ctcp & [message]]
+  "Sends a NOTICE ctcp reply. ctcp is the ctcp you want to send (FINGER, PING, etc)
+  and message is an optional message to go after the CTCP and a space."
+  (send-ctcp irc nick send-notice ctcp message))
+
+(def default-ctcp-map
+     {"VERSION"    (fn [irc nick & _] (send-ctcp-reply irc nick "VERSION" "irclj version 3.0-SNAPSHOT"))
+      "TIME"       (fn [irc nick & _] (send-ctcp-reply irc nick "TIME" (str (Date.))))
+      "CLIENTINFO" (fn [irc nick & _] (send-ctcp-reply irc nick "CLIENTINFO" "VERSION TIME CLIENTINFO PING"))
+      "PING"       (fn [irc nick & [arg]] (send-ctcp-reply irc nick "PING" arg))})
+
 (defn- handle-ctcp
   "Takes a CTCP message and responds to it."
   [irc nick ctcp-s]
   (let [ctcp (apply str (remove #(= \u0001 %) ctcp-s))
-        first-part (first (.split ctcp " "))]
-    (send-notice 
-     irc nick ((:ctcp-map @irc) first-part))))
+        [first-part & more] (.split ctcp " ")]
+    (apply ((:ctcp-map @irc) first-part) irc nick more)))
 
 (defn- channel-or-nick [{:keys [channel nick irc] :as info-map}]
   (if (= channel (:name @irc)) (assoc info-map :channel nick) info-map))
@@ -235,8 +236,6 @@
 
 (defn- remove-channel [irc channel]
   (dosync (alter irc update-in [:channels] dissoc channel)))
-
-(defn- replace-key)
 
 (defmulti handle (fn [irc fnm] (:doing irc)))
 
@@ -344,6 +343,18 @@
         (while true
           (Thread/sleep (:delay-ms @irc))
           (print-irc-line irc (.take q))))))))
+
+(defn create-irc 
+  "Function to create an IRC(bot). You need to at most supply a server and fnmap.
+  If you don't supply a name, username, realname, ctcp-map, port, limit, or catche-xceptions?,
+  they will default to irclj, irclj, teh bawt, 6667, default-ctcp-map, 1000, and true
+  respectively."
+  [{:keys [name password server username port realname fnmap ctcp-map catch-exceptions?
+           limit delay-ms]
+    :or {name "irclj" username "irclj" realname "teh bawt"
+         port 6667 ctcp-map default-ctcp-map catch-exceptions? true
+         delay-ms 1000}}]
+  (IRC. name password server username port realname fnmap ctcp-map catch-exceptions? delay-ms))
 
 (defn connect
   "Takes an IRC defrecord and optionally, a sequence of channels to join and
