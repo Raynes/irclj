@@ -240,7 +240,6 @@
 (defmulti handle (fn [irc fnm] (:doing irc)))
 
 (defmethod handle "NICK" [{:keys [irc nick new-nick]} {on-nick :on-nick}]
-           (println nick "\n" new-nick "\n" (extract-channels irc nick))
            (dosync
             (when (= nick (:name @irc)) (alter irc assoc :name new-nick))
             (doseq [chan (extract-channels irc nick)]
