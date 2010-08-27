@@ -225,8 +225,10 @@
   "Takes a CTCP message and responds to it."
   [irc nick ctcp-s]
   (let [ctcp (apply str (remove #(= \u0001 %) ctcp-s))
-        [first-part & more] (.split ctcp " ")]
-    (apply ((:ctcp-map @irc) first-part) irc nick more)))
+        [first-part & more] (.split ctcp " ")
+        f ((:ctcp-map @irc) first-part)]
+    (when f
+      (apply f irc nick more))))
 
 (defn- channel-or-nick [{:keys [channel nick irc] :as info-map}]
   (if (= channel (:name @irc)) (assoc info-map :channel nick) info-map))
