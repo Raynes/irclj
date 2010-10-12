@@ -27,6 +27,6 @@
                         (send-message irc channel (str "While executing the " doing " handler, an error occurred: " (.getMessage error))))})
 
 (def bot (connect (create-irc {:name "ircljbot" :server "irc.freenode.net" :fnmap fnmap}) 
-		  :channels ["#()" "#irclj" ["#keyed" "secret"]]))
+		  :channels ["#irclj" ["#keyed" "secret"]]))
 (read-line)
 (close bot)
