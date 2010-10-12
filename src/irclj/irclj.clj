@@ -90,7 +90,11 @@
   "Joins a channel."
   [irc channel & [key]]
   (when-not (some #(= % channel) (:channels @irc))
-    (send-msg irc "JOIN" (if key (str channel " :" key) (str " :" channel)))))
+    (send-msg irc "JOIN"
+              (if key
+                (do
+                  (dosync (alter irc assoc-in [:channels channel :key] key))
+                  (str channel " :" key)) (str " :" channel)))))
 
 (defn part-chan
   "Leaves a channel."
