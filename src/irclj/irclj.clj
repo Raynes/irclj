@@ -274,7 +274,7 @@
      (on-action
       (channel-or-nick
        (->> :message info-map (drop 8) butlast (apply str) (assoc info-map :message))))
-     (and (= (first message) \u0001) (not (starts-with-action?))) (handle-ctcp irc nick message)
+     (and (= (first message) \u0001) (not starts-with-action?)) (handle-ctcp irc nick message)
      :else (when on-message (on-message (channel-or-nick info-map))))))
 
 (defmethod handle "QUIT" [{:keys [nick irc] :as info-map} {on-quit :on-quit}]
