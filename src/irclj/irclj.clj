@@ -268,13 +268,14 @@
   (dosync (alter irc assoc-in [:channels channel :topic] topic)))
 
 (defmethod handle "PRIVMSG" [{:keys [nick message irc] :as info-map} {:keys [on-message on-action]}]
-  (cond
-   (and on-action (.startsWith message "\u0001ACTION"))
-   (on-action
-    (channel-or-nick
-     (->> :message info-map (drop 8) butlast (apply str) (assoc info-map :message))))
-   (and (= (first message) \u0001)) (handle-ctcp irc nick message)
-   :else (when on-message (on-message (channel-or-nick info-map)))))
+  (let [starts-with-action? (.startsWith message "\u0001ACTION")]
+    (cond
+     (and on-action starts-with-action?)
+     (on-action
+      (channel-or-nick
+       (->> :message info-map (drop 8) butlast (apply str) (assoc info-map :message))))
+     (and (= (first message) \u0001)) (not (starts-with-action?)) (handle-ctcp irc nick message)
+     :else (when on-message (on-message (channel-or-nick info-map))))))
 
 (defmethod handle "QUIT" [{:keys [nick irc] :as info-map} {on-quit :on-quit}]
   (let [channels (extract-channels irc nick)]
