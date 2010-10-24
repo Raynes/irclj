@@ -8,6 +8,7 @@
         [clojure.contrib.def :only [defmacro- defvar-]])
   (:require [clojure.java.io :as io])
   (:import java.io.PrintWriter
+           java.io.IOException
            java.net.Socket
            java.util.concurrent.LinkedBlockingQueue
            java.util.Date))
@@ -236,6 +237,15 @@
 (defn- remove-channel [irc channel]
   (dosync (alter irc update-in [:channels] dissoc channel)))
 
+(defn- shutdown [irc]
+  (reset! (:shutdown? @irc) true)
+  (dosync (alter irc assoc
+                 :shutdown? nil
+                 :connection nil
+                 :connected? false
+                 :out-queue nil
+                 :channels {})))
+
 (defmulti handle (fn [irc fnm] (:doing irc)))
 
 (defmethod handle "NICK" [{:keys [irc nick new-nick]} {on-nick :on-nick}]
@@ -277,8 +287,10 @@
 
 (defmethod handle "QUIT" [{:keys [nick irc] :as info-map} {on-quit :on-quit}]
   (let [channels (extract-channels irc nick)]
-    (doseq [chan channels]
-      (remove-nick irc nick chan))
+    (if (= nick (:name @irc))
+      (shutdown irc)
+      (doseq [chan channels]
+        (remove-nick irc nick chan)))
     (when on-quit (on-quit (assoc info-map :channels channels)))))
 
 (defmethod handle "JOIN" [{:keys [nick channel irc] :as info-map} {on-join :on-join}]
@@ -332,19 +344,24 @@
 (defn close
   "Closes an IRC connection (including the socket)."
   [irc]
-  (let [{{:keys [sock sockout sockin]} :connection} @irc]
-    (push-irc-line irc "QUIT")
-    (.close sock)
-    (.close sockin)
-    (.close sockout)))
+  (push-irc-line irc "QUIT")
+  (shutdown irc))
 
 (defn- setup-queue [irc]
-  (let [q (java.util.concurrent.LinkedBlockingQueue.)]
+  (let [q (java.util.concurrent.LinkedBlockingQueue.)
+        sockout (-> @irc :connection :sockout)
+        shutdown? (:shutdown? @irc)]
     (dosync (alter irc assoc :out-queue q))
     (future
-     (while true
-       (Thread/sleep (:delay-ms @irc))
-       (print-irc-line irc (.take q))))))
+      (println "Starting write loop thread")
+      (try
+        (while (not (and (.isEmpty q) @shutdown?))
+          (Thread/sleep (:delay-ms @irc))
+          (print-irc-line irc (.take q)))
+        (catch IOException _)
+        (finally
+          (.close sockout)
+          (println "Stopping write loop thread"))))))
 
 ;; Other specialized encodings (e.g. for cyrillic or latin characters with diacritics)
 ;; might actually still be the more common ones, but UTF-8 works/breaks equally for
@@ -361,13 +378,22 @@
    :delay-ms 1000
    :connect-options {}})
 
+(defvar- default-state
+  {:connection nil
+   :connected? false
+   :shutdown? nil
+   :channels {}
+   :connect-options {}})
+
 (defn create-irc 
   "Function to create an IRC(bot). You need to at most supply a server and fnmap.
   If you don't supply a name, username, realname, ctcp-map, port, limit, or catch-exceptions?,
   they will default to irclj, irclj, teh bawt, 6667, default-ctcp-map, 1000, and true
   respectively."
   [options]
-  (ref (merge default-options options)))
+  (ref (merge default-options
+              default-state
+              options)))
 
 (defn connect
   "Takes an IRC map ref and optionally, a sequence of channels to join and
@@ -393,30 +419,38 @@
         in-encoding (or in-encoding encoding)
         sock (Socket. server port)
         sockout (PrintWriter. (io/writer sock :encoding out-encoding) true)
-        sockin (io/reader sock :encoding in-encoding)]
+        sockin (io/reader sock :encoding in-encoding)
+        shutdown? (atom false)]
     (dosync (alter irc assoc
                    :connection {:sock sock, :sockin sockin, :sockout sockout}
-                   :connected? false))
+                   :connected? false
+                   :shutdown? shutdown?))
     (.start
      (Thread.
       (fn []
+        (println "Starting read loop thread")
         (setup-queue irc)
         (push-irc-line irc (str "NICK " name))
         (push-irc-line irc (str "USER " username " na na :" realname))
-        (while (not (.isClosed sock))
-          (let [rline (read-irc-line @irc)
-                line (apply str (rest rline))
-                words (split line #" ")]
-            (handle-events (string-to-map (if (= \: (first rline)) words (split rline #" ")) irc) irc)
-            (when (= (second words) "001")
-              (do
-                (when (and identify-after-secs password)
-                  (identify irc)
-                  (Thread/sleep (* 1000 identify-after-secs))
-                  (println "Sleeping while identification takes place."))
-                (when channels
-                  (doseq [channel channels]
-                    (if (vector? channel)
-                      (join-chan irc (channel 0) (channel 1))
-                      (join-chan irc channel)))))))))))
+        (try
+          (while (not @shutdown?)
+            (let [rline (read-irc-line @irc)
+                  line (apply str (rest rline))
+                  words (split line #" ")]
+              (handle-events (string-to-map (if (= \: (first rline)) words (split rline #" ")) irc) irc)
+              (when (= (second words) "001")
+                (do
+                  (when (and identify-after-secs password)
+                    (identify irc)
+                    (Thread/sleep (* 1000 identify-after-secs))
+                    (println "Sleeping while identification takes place."))
+                  (when channels
+                    (doseq [channel channels]
+                      (if (vector? channel)
+                        (join-chan irc (channel 0) (channel 1))
+                        (join-chan irc channel))))))))
+          (catch IOException _)
+          (finally
+            (.close sockin)
+            (println "Stopping read loop thread"))))))
     irc))
