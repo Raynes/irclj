@@ -149,6 +149,11 @@
   [irc]
   (send-message irc "NickServ" (str "IDENTIFY " (:password @irc))))
 
+(defn ping
+  "Sends a ping."
+  [irc payload]
+  (send-msg irc "PING" (str ":" payload)))
+
 (defn- extract-message [s]
   (apply str (rest (join " " s))))
 
@@ -238,13 +243,14 @@
   (dosync (alter irc update-in [:channels] dissoc channel)))
 
 (defn- shutdown [irc]
-  (reset! (:shutdown? @irc) true)
-  (dosync (alter irc assoc
-                 :shutdown? nil
-                 :connection nil
-                 :connected? false
-                 :out-queue nil
-                 :channels {})))
+  (when (:shutdown? @irc)
+    (reset! (:shutdown? @irc) true)
+    (dosync (alter irc assoc
+                   :shutdown? nil
+                   :connection nil
+                   :connected? false
+                   :out-queue nil
+                   :channels {}))))
 
 (defmulti handle (fn [irc fnm] (:doing irc)))
 
@@ -353,15 +359,29 @@
         shutdown? (:shutdown? @irc)]
     (dosync (alter irc assoc :out-queue q))
     (future
-      (println "Starting write loop thread")
+      (println "Starting write thread")
       (try
         (while (not (and (.isEmpty q) @shutdown?))
           (Thread/sleep (:delay-ms @irc))
           (print-irc-line irc (.take q)))
         (catch IOException _)
         (finally
+          (shutdown irc)
           (.close sockout)
-          (println "Stopping write loop thread"))))))
+          (println "Stopping write thread"))))))
+
+(defn- setup-pinger [irc]
+  (let [shutdown? (:shutdown? @irc)]
+    (future
+      (println "Starting ping thread")
+      (try
+        (while (not @shutdown?)
+          (Thread/sleep (* (:ping-interval-mins @irc) 60 1000))
+          (ping irc (:name @irc)))
+        (catch IOException _)
+        (finally
+          (shutdown irc)
+          (println "Stopping ping thread"))))))
 
 ;; Other specialized encodings (e.g. for cyrillic or latin characters with diacritics)
 ;; might actually still be the more common ones, but UTF-8 works/breaks equally for
@@ -375,6 +395,8 @@
    :port 6667
    :ctcp-map default-ctcp-map
    :catch-exceptions? true
+   :ping-interval-mins 10
+   :timeout-mins 20
    :delay-ms 1000
    :connect-options {}})
 
@@ -412,7 +434,8 @@
   both default to the value of :encoding."
   [irc & {:as options}]
   (dosync (alter irc update-in [:connect-options] merge options))
-  (let [{:keys [name password server username port realname fnmap connect-options]} @irc
+  (let [{:keys [name password server username port realname fnmap connect-options
+                ping-interval-mins timeout-mins]} @irc
         {:keys [channels identify-after-secs encoding out-encoding in-encoding]} connect-options
         encoding (or encoding default-encoding)
         out-encoding (or out-encoding encoding)
@@ -428,7 +451,9 @@
     (.start
      (Thread.
       (fn []
-        (println "Starting read loop thread")
+        (println "Starting read thread")
+        (when timeout-mins
+          (.setSoTimeout sock (* timeout-mins 60 1000)))
         (setup-queue irc)
         (push-irc-line irc (str "NICK " name))
         (push-irc-line irc (str "USER " username " na na :" realname))
@@ -439,18 +464,20 @@
                   words (split line #" ")]
               (handle-events (string-to-map (if (= \: (first rline)) words (split rline #" ")) irc) irc)
               (when (= (second words) "001")
-                (do
-                  (when (and identify-after-secs password)
-                    (identify irc)
-                    (Thread/sleep (* 1000 identify-after-secs))
-                    (println "Sleeping while identification takes place."))
-                  (when channels
-                    (doseq [channel channels]
-                      (if (vector? channel)
-                        (join-chan irc (channel 0) (channel 1))
-                        (join-chan irc channel))))))))
+                (when ping-interval-mins
+                  (setup-pinger irc))
+                (when (and identify-after-secs password)
+                  (identify irc)
+                  (Thread/sleep (* 1000 identify-after-secs))
+                  (println "Sleeping while identification takes place."))
+                (when channels
+                  (doseq [channel channels]
+                    (if (vector? channel)
+                      (join-chan irc (channel 0) (channel 1))
+                      (join-chan irc channel)))))))
           (catch IOException _)
           (finally
+            (shutdown irc)
             (.close sockin)
-            (println "Stopping read loop thread"))))))
+            (println "Stopping read thread"))))))
     irc))
