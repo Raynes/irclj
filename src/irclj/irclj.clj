@@ -5,19 +5,12 @@
          [set :only [rename-keys]]
          [stacktrace :only [print-throwable]]
          [string :only [join split]]]
-        [clojure.contrib.def :only [defmacro-]])
+        [clojure.contrib.def :only [defmacro- defvar-]])
   (:require [clojure.java.io :as io])
   (:import java.io.PrintWriter
            java.net.Socket
            java.util.concurrent.LinkedBlockingQueue
            java.util.Date))
-
-(defrecord IRC [name password server username port realname fnmap ctcp-map catch-exceptions? delay-ms])
-
-;; Other specialized encodings (e.g. for cyrillic or latin characters with diacritics)
-;; might actually still be the more common ones, but UTF-8 works/breaks equally for
-;; everyone and could one day become the single standard encoding.
-(def default-encoding "UTF-8")
 
 (defn- print-irc-line [irc text]
   (let [{{sockout :sockout} :connection} @irc]
@@ -353,23 +346,35 @@
        (Thread/sleep (:delay-ms @irc))
        (print-irc-line irc (.take q))))))
 
+;; Other specialized encodings (e.g. for cyrillic or latin characters with diacritics)
+;; might actually still be the more common ones, but UTF-8 works/breaks equally for
+;; everyone and could one day become the single standard encoding.
+(defvar- default-encoding "UTF-8")
+
+(defvar- default-options
+  {:name "irclj"
+   :username "irclj"
+   :realname "teh bawt"
+   :port 6667
+   :ctcp-map default-ctcp-map
+   :catch-exceptions? true
+   :delay-ms 1000
+   :connect-options {}})
+
 (defn create-irc 
   "Function to create an IRC(bot). You need to at most supply a server and fnmap.
-  If you don't supply a name, username, realname, ctcp-map, port, limit, or catche-xceptions?,
+  If you don't supply a name, username, realname, ctcp-map, port, limit, or catch-exceptions?,
   they will default to irclj, irclj, teh bawt, 6667, default-ctcp-map, 1000, and true
   respectively."
-  [{:keys [name password server username port realname fnmap ctcp-map catch-exceptions?
-           limit delay-ms]
-    :or {name "irclj" username "irclj" realname "teh bawt"
-         port 6667 ctcp-map default-ctcp-map catch-exceptions? true
-         delay-ms 1000}}]
-  (IRC. name password server username port realname fnmap ctcp-map catch-exceptions? delay-ms))
+  [options]
+  (ref (merge default-options options)))
 
 (defn connect
-  "Takes an IRC defrecord and optionally, a sequence of channels to join and
-  connects to IRC based on the information provided in the IRC and optionally joins
-  the channels. The connection itself runs in a separate thread, and the input stream
-  and output stream are merged into the IRC and returned as a ref.
+  "Takes an IRC map ref and optionally, a sequence of channels to join and
+  connects to IRC based on the information provided in the IRC and optionally
+  joins the channels. The connection itself runs in a separate thread, and the
+  input stream and output stream are merged into the IRC and returned as a
+  ref.
 
   If you wish to identify after connecting, you'll want to supply a password to your IRC
   record, and the optional key :identify-after-secs to connect. :indentify-after-secs takes
@@ -379,17 +384,19 @@
   Connection encoding can be specified with :encoding, which defaults to UTF-8. Separate
   encodings for input and putput can be choosen with :in-encoding and :out-encoding, which
   both default to the value of :encoding."
-  [^IRC {:keys [name password server username port realname fnmap] :as botmap}
-   & {:keys [channels identify-after-secs encoding out-encoding in-encoding]}]
-  (let [encoding (or encoding default-encoding)
+  [irc & {:as options}]
+  (dosync (alter irc update-in [:connect-options] merge options))
+  (let [{:keys [name password server username port realname fnmap connect-options]} @irc
+        {:keys [channels identify-after-secs encoding out-encoding in-encoding]} connect-options
+        encoding (or encoding default-encoding)
         out-encoding (or out-encoding encoding)
         in-encoding (or in-encoding encoding)
         sock (Socket. server port)
         sockout (PrintWriter. (io/writer sock :encoding out-encoding) true)
-        sockin (io/reader sock :encoding in-encoding)
-        irc (ref (assoc botmap
-                   :connection {:sock sock :sockin sockin :sockout sockout}
-                   :connected? false))]
+        sockin (io/reader sock :encoding in-encoding)]
+    (dosync (alter irc assoc
+                   :connection {:sock sock, :sockin sockin, :sockout sockout}
+                   :connected? false))
     (.start
      (Thread.
       (fn []
