@@ -242,15 +242,17 @@
 (defn- remove-channel [irc channel]
   (dosync (alter irc update-in [:channels] dissoc channel)))
 
+(declare handle-events)
+
 (defn- shutdown [irc]
-  (when (:shutdown? @irc)
-    (reset! (:shutdown? @irc) true)
+  (when (compare-and-set! (:shutdown? @irc) false true)
     (dosync (alter irc assoc
                    :shutdown? nil
                    :connection nil
                    :connected? false
                    :out-queue nil
-                   :channels {}))))
+                   :channels {}))
+    (handle-events {:doing :disconnect} irc)))
 
 (defmulti handle (fn [irc fnm] (:doing irc)))
 
@@ -264,6 +266,9 @@
            (do
              (dosync (alter irc assoc :connected? true))
              (when on-connect (on-connect info-map))))
+
+(defmethod handle :disconnect [{:keys [irc] :as info-map} {on-disconnect :on-disconnect}]
+           (when on-disconnect (on-disconnect info-map)))
 
 (defmethod handle "PING" [{:keys [irc ping]} _]
   (push-irc-line irc (.replace ping "PING" "PONG")))
