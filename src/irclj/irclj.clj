@@ -5,19 +5,13 @@
          [set :only [rename-keys]]
          [stacktrace :only [print-throwable]]
          [string :only [join split]]]
-        [clojure.contrib.def :only [defmacro-]])
+        [clojure.contrib.def :only [defmacro- defvar-]])
   (:require [clojure.java.io :as io])
   (:import java.io.PrintWriter
+           java.io.IOException
            java.net.Socket
            java.util.concurrent.LinkedBlockingQueue
            java.util.Date))
-
-(defrecord IRC [name password server username port realname fnmap ctcp-map catch-exceptions? delay-ms])
-
-;; Other specialized encodings (e.g. for cyrillic or latin characters with diacritics)
-;; might actually still be the more common ones, but UTF-8 works/breaks equally for
-;; everyone and could one day become the single standard encoding.
-(def default-encoding "UTF-8")
 
 (defn- print-irc-line [irc text]
   (let [{{sockout :sockout} :connection} @irc]
@@ -155,6 +149,11 @@
   [irc]
   (send-message irc "NickServ" (str "IDENTIFY " (:password @irc))))
 
+(defn ping
+  "Sends a ping."
+  [irc payload]
+  (send-msg irc "PING" (str ":" payload)))
+
 (defn- extract-message [s]
   (apply str (rest (join " " s))))
 
@@ -243,18 +242,38 @@
 (defn- remove-channel [irc channel]
   (dosync (alter irc update-in [:channels] dissoc channel)))
 
+(declare handle-events)
+
+(defn- shutdown [irc shutdown-atom]
+  (when (compare-and-set! shutdown-atom false true)
+    (dosync (alter irc assoc
+                   :shutdown? nil
+                   :connection nil
+                   :connected? false
+                   :out-queue nil
+                   :channels {}))
+    (handle-events {:doing :disconnect} irc)))
+
 (defmulti handle (fn [irc fnm] (:doing irc)))
 
 (defmethod handle "NICK" [{:keys [irc nick new-nick]} {on-nick :on-nick}]
-           (dosync
-            (when (= nick (:name @irc)) (alter irc assoc :name new-nick))
-            (doseq [chan (extract-channels irc nick)]
-              (alter irc update-in [:channels chan :users] rename-keys {nick new-nick}))))
+  (dosync
+   (when (= nick (:name @irc)) (alter irc assoc :name new-nick))
+   (doseq [chan (extract-channels irc nick)]
+     (alter irc update-in [:channels chan :users] rename-keys {nick new-nick}))))
 
 (defmethod handle "001" [{:keys [irc] :as info-map} {on-connect :on-connect}]
-           (do
-             (dosync (alter irc assoc :connected? true))
-             (when on-connect (on-connect info-map))))
+  (dosync (alter irc assoc :connected? true))
+  (when on-connect (on-connect info-map)))
+
+(declare connect)
+
+(defmethod handle :disconnect [{:keys [irc] :as info-map} {on-disconnect :on-disconnect}]
+  (when (:auto-reconnect? @irc)
+    (future
+      (Thread/sleep (* (:auto-reconnect-delay-mins @irc) 60 1000))
+      (connect irc)))
+  (when on-disconnect (on-disconnect info-map)))
 
 (defmethod handle "PING" [{:keys [irc ping]} _]
   (push-irc-line irc (.replace ping "PING" "PONG")))
@@ -284,8 +303,10 @@
 
 (defmethod handle "QUIT" [{:keys [nick irc] :as info-map} {on-quit :on-quit}]
   (let [channels (extract-channels irc nick)]
-    (doseq [chan channels]
-      (remove-nick irc nick chan))
+    (if (= nick (:name @irc))
+      (shutdown irc (:shutdown? irc))
+      (doseq [chan channels]
+        (remove-nick irc nick chan)))
     (when on-quit (on-quit (assoc info-map :channels channels)))))
 
 (defmethod handle "JOIN" [{:keys [nick channel irc] :as info-map} {on-join :on-join}]
@@ -337,39 +358,85 @@
              (throw e))))))
 
 (defn close
-  "Closes an IRC connection (including the socket)."
+  "Closes an IRC connection (including the socket). This also disables
+  auto-reconnect"
   [irc]
-  (let [{{:keys [sock sockout sockin]} :connection} @irc]
-    (push-irc-line irc "QUIT")
-    (.close sock)
-    (.close sockin)
-    (.close sockout)))
+  (push-irc-line irc "QUIT")
+  (dosync (alter irc assoc :auto-reconnect? false))
+  (shutdown irc (:shutdown? @irc)))
 
 (defn- setup-queue [irc]
-  (let [q (java.util.concurrent.LinkedBlockingQueue.)]
+  (let [q (java.util.concurrent.LinkedBlockingQueue.)
+        sockout (-> @irc :connection :sockout)
+        shutdown-atom (:shutdown? @irc)]
     (dosync (alter irc assoc :out-queue q))
     (future
-     (while true
-       (Thread/sleep (:delay-ms @irc))
-       (print-irc-line irc (.take q))))))
+      (println "Starting write thread")
+      (try
+        (while (not (and (.isEmpty q) @shutdown-atom))
+          (print-irc-line irc (.take q))
+          (Thread/sleep (:delay-ms @irc)))
+        (catch IOException _)
+        (finally
+          (shutdown irc shutdown-atom)
+          (.close sockout)
+          (println "Stopping write thread"))))))
+
+(defn- setup-pinger [irc]
+  (let [shutdown-atom (:shutdown? @irc)]
+    (future
+      (println "Starting ping thread")
+      (try
+        (while (not @shutdown-atom)
+          (ping irc (:name @irc))
+          (Thread/sleep (* (:ping-interval-mins @irc) 60 1000)))
+        (catch IOException _)
+        (finally
+          (shutdown irc shutdown-atom)
+          (println "Stopping ping thread"))))))
+
+;; Other specialized encodings (e.g. for cyrillic or latin characters with diacritics)
+;; might actually still be the more common ones, but UTF-8 works/breaks equally for
+;; everyone and could one day become the single standard encoding.
+(defvar- default-encoding "UTF-8")
+
+(defvar- default-options
+  {:name "irclj"
+   :username "irclj"
+   :realname "teh bawt"
+   :port 6667
+   :ctcp-map default-ctcp-map
+   :catch-exceptions? true
+   :auto-reconnect? true
+   :auto-reconnect-delay-mins 3
+   :ping-interval-mins 10
+   :timeout-mins 20
+   :delay-ms 1000
+   :connect-options {}})
+
+(defvar- default-state
+  {:connection nil
+   :connected? false
+   :shutdown? nil
+   :channels {}
+   :connect-options {}})
 
 (defn create-irc 
   "Function to create an IRC(bot). You need to at most supply a server and fnmap.
-  If you don't supply a name, username, realname, ctcp-map, port, limit, or catche-xceptions?,
+  If you don't supply a name, username, realname, ctcp-map, port, limit, or catch-exceptions?,
   they will default to irclj, irclj, teh bawt, 6667, default-ctcp-map, 1000, and true
   respectively."
-  [{:keys [name password server username port realname fnmap ctcp-map catch-exceptions?
-           limit delay-ms]
-    :or {name "irclj" username "irclj" realname "teh bawt"
-         port 6667 ctcp-map default-ctcp-map catch-exceptions? true
-         delay-ms 1000}}]
-  (IRC. name password server username port realname fnmap ctcp-map catch-exceptions? delay-ms))
+  [options]
+  (ref (merge default-options
+              default-state
+              options)))
 
 (defn connect
-  "Takes an IRC defrecord and optionally, a sequence of channels to join and
-  connects to IRC based on the information provided in the IRC and optionally joins
-  the channels. The connection itself runs in a separate thread, and the input stream
-  and output stream are merged into the IRC and returned as a ref.
+  "Takes an IRC map ref and optionally, a sequence of channels to join and
+  connects to IRC based on the information provided in the IRC and optionally
+  joins the channels. The connection itself runs in a separate thread, and the
+  input stream and output stream are merged into the IRC and returned as a
+  ref.
 
   If you wish to identify after connecting, you'll want to supply a password to your IRC
   record, and the optional key :identify-after-secs to connect. :indentify-after-secs takes
@@ -379,30 +446,40 @@
   Connection encoding can be specified with :encoding, which defaults to UTF-8. Separate
   encodings for input and putput can be choosen with :in-encoding and :out-encoding, which
   both default to the value of :encoding."
-  [^IRC {:keys [name password server username port realname fnmap] :as botmap}
-   & {:keys [channels identify-after-secs encoding out-encoding in-encoding]}]
-  (let [encoding (or encoding default-encoding)
+  [irc & {:as options}]
+  (dosync (alter irc update-in [:connect-options] merge options))
+  (let [{:keys [name password server username port realname fnmap connect-options
+                ping-interval-mins timeout-mins]} @irc
+        {:keys [channels identify-after-secs encoding out-encoding in-encoding]} connect-options
+        encoding (or encoding default-encoding)
         out-encoding (or out-encoding encoding)
         in-encoding (or in-encoding encoding)
         sock (Socket. server port)
         sockout (PrintWriter. (io/writer sock :encoding out-encoding) true)
         sockin (io/reader sock :encoding in-encoding)
-        irc (ref (assoc botmap
-                   :connection {:sock sock :sockin sockin :sockout sockout}
-                   :connected? false))]
+        shutdown-atom (atom false)]
+    (dosync (alter irc assoc
+                   :connection {:sock sock, :sockin sockin, :sockout sockout}
+                   :connected? false
+                   :shutdown? shutdown-atom))
     (.start
      (Thread.
       (fn []
+        (println "Starting read thread")
+        (when timeout-mins
+          (.setSoTimeout sock (* timeout-mins 60 1000)))
         (setup-queue irc)
         (push-irc-line irc (str "NICK " name))
         (push-irc-line irc (str "USER " username " na na :" realname))
-        (while (not (.isClosed sock))
-          (let [rline (read-irc-line @irc)
-                line (apply str (rest rline))
-                words (split line #" ")]
-            (handle-events (string-to-map (if (= \: (first rline)) words (split rline #" ")) irc) irc)
-            (when (= (second words) "001")
-              (do
+        (try
+          (while (not @shutdown-atom)
+            (let [rline (read-irc-line @irc)
+                  line (apply str (rest rline))
+                  words (split line #" ")]
+              (handle-events (string-to-map (if (= \: (first rline)) words (split rline #" ")) irc) irc)
+              (when (= (second words) "001")
+                (when ping-interval-mins
+                  (setup-pinger irc))
                 (when (and identify-after-secs password)
                   (identify irc)
                   (Thread/sleep (* 1000 identify-after-secs))
@@ -411,5 +488,10 @@
                   (doseq [channel channels]
                     (if (vector? channel)
                       (join-chan irc (channel 0) (channel 1))
-                      (join-chan irc channel)))))))))))
+                      (join-chan irc channel)))))))
+          (catch IOException _)
+          (finally
+            (shutdown irc shutdown-atom)
+            (.close sockin)
+            (println "Stopping read thread"))))))
     irc))
