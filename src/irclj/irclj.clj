@@ -244,8 +244,8 @@
 
 (declare handle-events)
 
-(defn- shutdown [irc]
-  (when (compare-and-set! (:shutdown? @irc) false true)
+(defn- shutdown [irc shutdown-atom]
+  (when (compare-and-set! shutdown-atom false true)
     (dosync (alter irc assoc
                    :shutdown? nil
                    :connection nil
@@ -257,18 +257,23 @@
 (defmulti handle (fn [irc fnm] (:doing irc)))
 
 (defmethod handle "NICK" [{:keys [irc nick new-nick]} {on-nick :on-nick}]
-           (dosync
-            (when (= nick (:name @irc)) (alter irc assoc :name new-nick))
-            (doseq [chan (extract-channels irc nick)]
-              (alter irc update-in [:channels chan :users] rename-keys {nick new-nick}))))
+  (dosync
+   (when (= nick (:name @irc)) (alter irc assoc :name new-nick))
+   (doseq [chan (extract-channels irc nick)]
+     (alter irc update-in [:channels chan :users] rename-keys {nick new-nick}))))
 
 (defmethod handle "001" [{:keys [irc] :as info-map} {on-connect :on-connect}]
-           (do
-             (dosync (alter irc assoc :connected? true))
-             (when on-connect (on-connect info-map))))
+  (dosync (alter irc assoc :connected? true))
+  (when on-connect (on-connect info-map)))
+
+(declare connect)
 
 (defmethod handle :disconnect [{:keys [irc] :as info-map} {on-disconnect :on-disconnect}]
-           (when on-disconnect (on-disconnect info-map)))
+  (when (:auto-reconnect? @irc)
+    (future
+      (Thread/sleep (* (:auto-reconnect-delay-mins @irc) 60 1000))
+      (connect irc)))
+  (when on-disconnect (on-disconnect info-map)))
 
 (defmethod handle "PING" [{:keys [irc ping]} _]
   (push-irc-line irc (.replace ping "PING" "PONG")))
@@ -299,7 +304,7 @@
 (defmethod handle "QUIT" [{:keys [nick irc] :as info-map} {on-quit :on-quit}]
   (let [channels (extract-channels irc nick)]
     (if (= nick (:name @irc))
-      (shutdown irc)
+      (shutdown irc (:shutdown? irc))
       (doseq [chan channels]
         (remove-nick irc nick chan)))
     (when on-quit (on-quit (assoc info-map :channels channels)))))
@@ -353,39 +358,41 @@
              (throw e))))))
 
 (defn close
-  "Closes an IRC connection (including the socket)."
+  "Closes an IRC connection (including the socket). This also disables
+  auto-reconnect"
   [irc]
   (push-irc-line irc "QUIT")
-  (shutdown irc))
+  (dosync (alter irc assoc :auto-reconnect? false))
+  (shutdown irc (:shutdown? @irc)))
 
 (defn- setup-queue [irc]
   (let [q (java.util.concurrent.LinkedBlockingQueue.)
         sockout (-> @irc :connection :sockout)
-        shutdown? (:shutdown? @irc)]
+        shutdown-atom (:shutdown? @irc)]
     (dosync (alter irc assoc :out-queue q))
     (future
       (println "Starting write thread")
       (try
-        (while (not (and (.isEmpty q) @shutdown?))
-          (Thread/sleep (:delay-ms @irc))
-          (print-irc-line irc (.take q)))
+        (while (not (and (.isEmpty q) @shutdown-atom))
+          (print-irc-line irc (.take q))
+          (Thread/sleep (:delay-ms @irc)))
         (catch IOException _)
         (finally
-          (shutdown irc)
+          (shutdown irc shutdown-atom)
           (.close sockout)
           (println "Stopping write thread"))))))
 
 (defn- setup-pinger [irc]
-  (let [shutdown? (:shutdown? @irc)]
+  (let [shutdown-atom (:shutdown? @irc)]
     (future
       (println "Starting ping thread")
       (try
-        (while (not @shutdown?)
-          (Thread/sleep (* (:ping-interval-mins @irc) 60 1000))
-          (ping irc (:name @irc)))
+        (while (not @shutdown-atom)
+          (ping irc (:name @irc))
+          (Thread/sleep (* (:ping-interval-mins @irc) 60 1000)))
         (catch IOException _)
         (finally
-          (shutdown irc)
+          (shutdown irc shutdown-atom)
           (println "Stopping ping thread"))))))
 
 ;; Other specialized encodings (e.g. for cyrillic or latin characters with diacritics)
@@ -400,6 +407,8 @@
    :port 6667
    :ctcp-map default-ctcp-map
    :catch-exceptions? true
+   :auto-reconnect? true
+   :auto-reconnect-delay-mins 3
    :ping-interval-mins 10
    :timeout-mins 20
    :delay-ms 1000
@@ -448,11 +457,11 @@
         sock (Socket. server port)
         sockout (PrintWriter. (io/writer sock :encoding out-encoding) true)
         sockin (io/reader sock :encoding in-encoding)
-        shutdown? (atom false)]
+        shutdown-atom (atom false)]
     (dosync (alter irc assoc
                    :connection {:sock sock, :sockin sockin, :sockout sockout}
                    :connected? false
-                   :shutdown? shutdown?))
+                   :shutdown? shutdown-atom))
     (.start
      (Thread.
       (fn []
@@ -463,7 +472,7 @@
         (push-irc-line irc (str "NICK " name))
         (push-irc-line irc (str "USER " username " na na :" realname))
         (try
-          (while (not @shutdown?)
+          (while (not @shutdown-atom)
             (let [rline (read-irc-line @irc)
                   line (apply str (rest rline))
                   words (split line #" ")]
@@ -482,7 +491,7 @@
                       (join-chan irc channel)))))))
           (catch IOException _)
           (finally
-            (shutdown irc)
+            (shutdown irc shutdown-atom)
             (.close sockin)
             (println "Stopping read thread"))))))
     irc))
