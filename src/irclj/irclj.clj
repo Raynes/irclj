@@ -361,9 +361,10 @@
   "Closes an IRC connection (including the socket). This also disables
   auto-reconnect"
   [irc]
-  (push-irc-line irc "QUIT")
   (dosync (alter irc assoc :auto-reconnect? false))
-  (shutdown irc (:shutdown? @irc)))
+  (when (:shutdown? @irc)
+    (push-irc-line irc "QUIT")
+    (shutdown irc (:shutdown? @irc))))
 
 (defn- setup-queue [irc]
   (let [q (java.util.concurrent.LinkedBlockingQueue.)
@@ -408,7 +409,7 @@
    :ctcp-map default-ctcp-map
    :catch-exceptions? true
    :auto-reconnect? true
-   :auto-reconnect-delay-mins 3
+   :auto-reconnect-delay-mins 5
    :ping-interval-mins 10
    :timeout-mins 20
    :delay-ms 1000
@@ -448,50 +449,58 @@
   both default to the value of :encoding."
   [irc & {:as options}]
   (dosync (alter irc update-in [:connect-options] merge options))
-  (let [{:keys [name password server username port realname fnmap connect-options
-                ping-interval-mins timeout-mins]} @irc
-        {:keys [channels identify-after-secs encoding out-encoding in-encoding]} connect-options
-        encoding (or encoding default-encoding)
-        out-encoding (or out-encoding encoding)
-        in-encoding (or in-encoding encoding)
-        sock (Socket. server port)
-        sockout (PrintWriter. (io/writer sock :encoding out-encoding) true)
-        sockin (io/reader sock :encoding in-encoding)
-        shutdown-atom (atom false)]
-    (dosync (alter irc assoc
-                   :connection {:sock sock, :sockin sockin, :sockout sockout}
-                   :connected? false
-                   :shutdown? shutdown-atom))
-    (.start
-     (Thread.
-      (fn []
-        (println "Starting read thread")
-        (when timeout-mins
-          (.setSoTimeout sock (* timeout-mins 60 1000)))
-        (setup-queue irc)
-        (push-irc-line irc (str "NICK " name))
-        (push-irc-line irc (str "USER " username " na na :" realname))
-        (try
-          (while (not @shutdown-atom)
-            (let [rline (read-irc-line @irc)
-                  line (apply str (rest rline))
-                  words (split line #" ")]
-              (handle-events (string-to-map (if (= \: (first rline)) words (split rline #" ")) irc) irc)
-              (when (= (second words) "001")
-                (when ping-interval-mins
-                  (setup-pinger irc))
-                (when (and identify-after-secs password)
-                  (identify irc)
-                  (Thread/sleep (* 1000 identify-after-secs))
-                  (println "Sleeping while identification takes place."))
-                (when channels
-                  (doseq [channel channels]
-                    (if (vector? channel)
-                      (join-chan irc (channel 0) (channel 1))
-                      (join-chan irc channel)))))))
-          (catch IOException _)
-          (finally
-            (shutdown irc shutdown-atom)
-            (.close sockin)
-            (println "Stopping read thread"))))))
-    irc))
+  (try
+    (let [{:keys [name password server username port realname fnmap connect-options
+                  ping-interval-mins timeout-mins]} @irc
+                  {:keys [channels identify-after-secs encoding out-encoding in-encoding]} connect-options
+                  encoding (or encoding default-encoding)
+                  out-encoding (or out-encoding encoding)
+                  in-encoding (or in-encoding encoding)
+                  sock (Socket. server port)
+                  sockout (PrintWriter. (io/writer sock :encoding out-encoding) true)
+                  sockin (io/reader sock :encoding in-encoding)
+                  shutdown-atom (atom false)]
+      (dosync (alter irc assoc
+                     :connection {:sock sock, :sockin sockin, :sockout sockout}
+                     :connected? false
+                     :shutdown? shutdown-atom))
+      (.start
+       (Thread.
+        (fn []
+          (println "Starting read thread")
+          (when timeout-mins
+            (.setSoTimeout sock (* timeout-mins 60 1000)))
+          (setup-queue irc)
+          (push-irc-line irc (str "NICK " name))
+          (push-irc-line irc (str "USER " username " na na :" realname))
+          (try
+            (while (not @shutdown-atom)
+              (let [rline (read-irc-line @irc)
+                    line (apply str (rest rline))
+                    words (split line #" ")]
+                (handle-events (string-to-map (if (= \: (first rline)) words (split rline #" ")) irc) irc)
+                (when (= (second words) "001")
+                  (when ping-interval-mins
+                    (setup-pinger irc))
+                  (when (and identify-after-secs password)
+                    (identify irc)
+                    (Thread/sleep (* 1000 identify-after-secs))
+                    (println "Sleeping while identification takes place."))
+                  (when channels
+                    (doseq [channel channels]
+                      (if (vector? channel)
+                        (join-chan irc (channel 0) (channel 1))
+                        (join-chan irc channel)))))))
+            (catch IOException _)
+            (finally
+             (shutdown irc shutdown-atom)
+             (.close sockin)
+             (println "Stopping read thread"))))))
+      irc)
+    (catch java.net.ConnectException _
+      (when (:auto-reconnect? @irc)
+        (println "Failed to establish connection to IRC server, retrying in"
+                 (:auto-reconnect-delay-mins @irc) "minutes")
+        (future
+          (Thread/sleep (* (:auto-reconnect-delay-mins @irc) 60 1000))
+          (connect irc))))))
