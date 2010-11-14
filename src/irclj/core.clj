@@ -1,4 +1,4 @@
-(ns irclj.irclj
+(ns irclj.core
   "A small IRC library to abstract over lower-level IRC connection handling."
   {:author "Anthony Simpson (Rayne)"}
   (:use [clojure
