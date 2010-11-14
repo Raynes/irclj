@@ -3,7 +3,7 @@
   {:author "Anthony Simpson (Rayne)"}
   (:use [clojure
          [set :only [rename-keys]]
-         [stacktrace :only [print-throwable]]
+         [stacktrace :only [print-stack-trace]]
          [string :only [join split]]]
         [clojure.contrib.def :only [defmacro- defvar-]])
   (:require [clojure.java.io :as io])
@@ -352,7 +352,7 @@
              (do
                (println "\n======================================================\n"
                         "An error has occurred in the" (:doing info) "handler.\n\n"
-                        (with-out-str (print-throwable e))
+                        (with-out-str (print-stack-trace e))
                         "\n======================================================\n")
                (when on-error (on-error (assoc info :irc irc :error e))))
              (throw e))))))
