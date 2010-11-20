@@ -21,8 +21,8 @@
 		       (send-message irc "#irclj" (str nick " quit. His reason was: " reason)))
 	    :on-part (fn [{:keys [nick reason channel irc]}]
 		       (send-message irc channel (str nick " parted. Reason: " reason)))
-	    on-action (fn [{:keys [nick message reason channel irc]}]
-                        (send-message irc channel (str "you said " message)))
+	    :on-action (fn [{:keys [nick message reason channel irc]}]
+                         (send-message irc channel (str "you said " message)))
             :on-connect (fn [_] (println "\n\nON-CONNECT TRIGGERED.\n\n"))
             :on-error (fn [{:keys [irc channel error doing]}]
                         (send-message irc channel (str "While executing the " doing " handler, an error occurred: " (.getMessage error))))})
