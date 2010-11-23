@@ -254,6 +254,13 @@
                    :channels {}))
     (handle-events {:doing :disconnect} irc)))
 
+(defn- shutdown-no-retry [irc shutdown-atom]
+  (dosync
+    (let [auto-reconnect? (:auto-reconnect? @irc)]
+      (alter irc assoc :auto-reconnect? false)
+      (shutdown irc shutdown-atom)
+      (alter irc assoc :auto-reconnect? auto-reconnect?))))
+
 (defmulti handle (fn [irc fnm] (:doing irc)))
 
 (defmethod handle "NICK" [{:keys [irc nick new-nick]} {on-nick :on-nick}]
@@ -361,10 +368,9 @@
   "Closes an IRC connection (including the socket). This also disables
   auto-reconnect"
   [irc]
-  (dosync (alter irc assoc :auto-reconnect? false))
   (when (:shutdown? @irc)
     (push-irc-line irc "QUIT")
-    (shutdown irc (:shutdown? @irc))))
+    (shutdown-no-retry irc (:shutdown? @irc))))
 
 (defn- setup-queue [irc]
   (let [q (java.util.concurrent.LinkedBlockingQueue.)
@@ -479,6 +485,9 @@
                     line (apply str (rest rline))
                     words (split line #" ")]
                 (handle-events (string-to-map (if (= \: (first rline)) words (split rline #" ")) irc) irc)
+                (when (= (second words) "433")
+                  (println "Nick already taken; bailing out.")
+                  (shutdown-no-retry irc shutdown-atom))
                 (when (= (second words) "001")
                   (when ping-interval-mins
                     (setup-pinger irc))
