@@ -6,7 +6,7 @@ The library offers a pretty thorough bot framework. It offers flood protection t
 
 ## Usage
 
-See testirclj.clj in src/irclj for a tiny little example bot. For a larger, real-world example, see http://www.github.com/Raynes/sexpbot
+See testirclj.clj in src/irclj for a tiny little example bot. For a larger, real-world example, see http://www.github.com/flatland/sexpbot
 
 The first thing you do is define an IRC record with create-irc. It takes a map. You can supply a nick (name) for the bot, a password, a server, a username, a port, a realname, and a map of fns that will be called when certain things happen. There are some other more advanced things you can supply. Check out it's arglist for details, or do `(doc create-irc)`.
 
@@ -48,7 +48,7 @@ And here are action specific map keys that are put in the map along with the key
     TOPIC ; :channel, :topic
     ERROR ; :error
 
-All of this information is sent in a single map that you can destructure in the functions in fn map. Simple, right? Well, I suck at explaining things, but looking at the example(s) in the /examples directory should help. You can also look at the bot that this library was originally created for, [sexpbot](http://github.com/Raynes/sexpbot). If you have any questions, you can find me on freenode, at #clojure, #clojure-casual, and #(code). If you have any questions or suggestions, feel free to hit me up with them.
+All of this information is sent in a single map that you can destructure in the functions in fn map. Simple, right? Well, I suck at explaining things, but looking at the example(s) in the /examples directory should help. You can also look at the bot that this library was originally created for, [sexpbot](http://github.com/flatland/sexpbot). If you have any questions, you can find me on freenode, at #clojure, #clojure-casual, and #(code). If you have any questions or suggestions, feel free to hit me up with them.
 
 ## Installation
 
