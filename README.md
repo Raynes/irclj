@@ -1,12 +1,12 @@
 # irclj
 
-Irclj is a Clojure IRC library that might remind you of Pircbot to some extent. I originally designed it to replace Pircbot in sexpbot, my Clojure IRC bot. I've already rewritten sexpbot to use the library, so it's probably the best usage example at this point.
+Irclj is a Clojure IRC library that might remind you of Pircbot to some extent. I originally designed it to replace Pircbot in lazybot, my Clojure IRC bot. I've already rewritten lazybot to use the library, so it's probably the best usage example at this point.
 
 The library offers a pretty thorough bot framework. It offers flood protection that is essentially the same as Pircbot's, and various important features you'd expect out of such a library. It's designed so that it should be possible to use this library to create clients as well as IRC bots.
 
 ## Usage
 
-See testirclj.clj in src/irclj for a tiny little example bot. For a larger, real-world example, see http://www.github.com/flatland/sexpbot
+See testirclj.clj in src/irclj for a tiny little example bot. For a larger, real-world example, see http://www.github.com/flatland/lazybot
 
 The first thing you do is define an IRC record with create-irc. It takes a map. You can supply a nick (name) for the bot, a password, a server, a username, a port, a realname, and a map of fns that will be called when certain things happen. There are some other more advanced things you can supply. Check out it's arglist for details, or do `(doc create-irc)`.
 
@@ -48,7 +48,7 @@ And here are action specific map keys that are put in the map along with the key
     TOPIC ; :channel, :topic
     ERROR ; :error
 
-All of this information is sent in a single map that you can destructure in the functions in fn map. Simple, right? Well, I suck at explaining things, but looking at the example(s) in the /examples directory should help. You can also look at the bot that this library was originally created for, [sexpbot](http://github.com/flatland/sexpbot). If you have any questions, you can find me on freenode, at #clojure, #clojure-casual, and #(code). If you have any questions or suggestions, feel free to hit me up with them.
+All of this information is sent in a single map that you can destructure in the functions in fn map. Simple, right? Well, I suck at explaining things, but looking at the example(s) in the /examples directory should help. You can also look at the bot that this library was originally created for, [lazybot](http://github.com/flatland/lazybot). If you have any questions, you can find me on freenode, at #clojure, #clojure-casual, and #(code). If you have any questions or suggestions, feel free to hit me up with them.
 
 ## Installation
 
