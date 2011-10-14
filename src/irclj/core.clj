@@ -4,8 +4,7 @@
   (:use [clojure
          [set :only [rename-keys]]
          [stacktrace :only [print-stack-trace]]
-         [string :only [join split]]]
-        [clojure.contrib.def :only [defmacro- defvar-]])
+         [string :only [join split]]])
   (:require [clojure.java.io :as io])
   (:import java.io.PrintWriter
            java.io.IOException
@@ -405,9 +404,9 @@
 ;; Other specialized encodings (e.g. for cyrillic or latin characters with diacritics)
 ;; might actually still be the more common ones, but UTF-8 works/breaks equally for
 ;; everyone and could one day become the single standard encoding.
-(defvar- default-encoding "UTF-8")
+(def ^:private default-encoding "UTF-8")
 
-(defvar- default-options
+(def ^:private default-options
   {:name "irclj"
    :username "irclj"
    :realname "teh bawt"
@@ -421,7 +420,7 @@
    :delay-ms 1000
    :connect-options {}})
 
-(defvar- default-state
+(def ^:private default-state
   {:connection nil
    :connected? false
    :shutdown? nil
