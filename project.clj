@@ -1,4 +1,3 @@
-(defproject irclj "0.4.1"
+(defproject irclj "0.5.0-SNAPSHOT"
   :description "A simple IRC library/bot framework."
-  :dependencies [[org.clojure/clojure "1.3.0"]]
-  :copy-deps true)
+  :dependencies [[org.clojure/clojure "1.3.0"]])
