@@ -50,7 +50,7 @@
       (conj split-single multi)
       split-single)))
 
-(defn parse-message
+(defn parse
   "Takes a raw message from IRC and turns it into a Clojure map.
    This map will contain :command, :params, :raw keys. If the message
    begins with a prefix, it will be parsed and :nick, :user, and :host
