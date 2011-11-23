@@ -69,6 +69,12 @@
     (let [prefix (-> nick first prefixes)]
       [(if prefix (subs nick 1) nick) {:mode prefix}])))
 
+(def ^{:doc "A map of indicators from 353 to their meanings."}
+  indicators
+  {"@" :secret
+   "*" :private
+   "=" :public})
+
 ;; 353 gives you the list of users that are in a channel. We want this.
 (defmethod process-line "353" [{:keys [params]} irc]
   (let [[_ indicator channel names] params
@@ -80,7 +86,7 @@
      (alter irc update-in [:channel channel]
             (fn [old]
               (-> old
-                  (assoc :indicator indicator)
+                  (assoc :indicator (doto (indicators indicator) prn))
                   (update-in [:users] #(into names %))))))))
 
 ;; At this point, the IRC server has registered our connection. We can communicate
