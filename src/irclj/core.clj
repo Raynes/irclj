@@ -59,6 +59,10 @@
   (when-let [prefixes (parse-prefix m)]
     (dosync (alter irc assoc :prefixes prefixes))))
 
+;; IRC sends 332 to tell you what the channel topic is (if present).
+(defmethod process-line "332" [{:keys [params]} irc]
+  (dosync (alter irc assoc-in [:channels (first params) :topic] (last params))))
+
 (defn- nick-parser
   "Returns a function that parses a nick, returning a map where the nick
    is the key and the value is another map containing a :mode key which is
