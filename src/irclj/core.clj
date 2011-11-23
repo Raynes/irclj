@@ -82,6 +82,12 @@
     (when @(:ready? @irc)
       (write-irc-line irc "JOIN" (string/join "," chans) (string/join "," keys)))))
 
+(defn part-channels
+  "Part from channels. A channel is either a string or a vector of string and key.
+   If message is nil, no part message is used."
+  [irc message & channels]
+  (write-irc-line irc "PART" (string/join ",") (when message (str ":"  message))))
+
 ;; ## Connections
 
 (defn create-connection
