@@ -15,15 +15,10 @@
   (:import (java.net Socket SocketTimeoutException)
            java.io.IOException))
 
-(defn create-connection
-  "Creates a socket from a host and a port. Returns a map
-   of the socket and readers over its input and output."
-  [host port]
-  (let [socket (Socket. host port)]
-    {:socket socket
-     :in (io/reader socket)
-     :out (io/writer socket)}))
+;; ## IRC Message Processing
 
+;; We're using an event-based system for communicating with users. This
+;; fires event callbacks.
 (defn fire
   "Fire a callback of type type if it exists, passing irc and args."
   [irc type & args]
@@ -42,22 +37,17 @@
     (binding [*out* (get-in @irc [:connection :out])]
       (println s))))
 
-;; This is the default raw-log callback function. It logs input and output to
-;; stdout, which is the most common use case.
-(defn stdout-callback
-  "A raw-log callback that prints to stdout."
-  [_ type s]
-  (println
-   (case type
-     :write (str ">> " s)
-     :read s)))
-
 ;; We're going handle IRC messages polymorphically. Whatever IRC commands we
 ;; support are implemented as process-line implementations. process-line takes
 ;; the result of irclj.parser/parse.
 (defmulti process-line
   "Process a parsed IRC message."
   (fn [m _] (:command m)))
+
+;; At this point, the IRC server has registered our connection. We can communicate
+;; this by delivering our ready? promise.
+(defmethod process-line "001" [m irc]
+  (deliver (:ready? @irc) true))
 
 ;; We can't really recover from a nick-already-in-use error. Just throw an
 ;; exception.
@@ -72,6 +62,36 @@
 ;; We don't want to die if something that we don't support happens. We can just
 ;; ignore it instead.
 (defmethod process-line :default [& _] nil)
+
+;; ## IRC Commands
+
+;; The IRC spec requires that servers allow for a join command to
+;; join several channels at once. We're doing some fun stuff to make
+;; sure that the keyed channels come first. They have to come first
+;; because if you were to try something like so:
+;; `JOIN keyedchan,nonkeyed,anotherkeyedchan key,key2`
+;; then IRC would thing that key2 is for nonkeyed and not for
+;; anotherkeyedchan.
+(defn join-channels
+  "Joins channels. A channel is either a string or a vector of string and key.
+   "
+  [irc & channels]
+  (let [[keyed regular] ((juxt filter remove) vector? channels)
+        chans (concat (map first keyed) regular)
+        keys (map last keyed)]
+    (when @(:ready? @irc)
+      (write-irc-line irc "JOIN" (string/join "," chans) (string/join "," keys)))))
+
+;; ## Connections
+
+(defn create-connection
+  "Creates a socket from a host and a port. Returns a map
+   of the socket and readers over its input and output."
+  [host port]
+  (let [socket (Socket. host port)]
+    {:socket socket
+     :in (io/reader socket)
+     :out (io/writer socket)}))
 
 ;; IRC requires that you do this little dance to register your connection
 ;; with the IRC network.
@@ -111,6 +131,16 @@
   (fire irc :raw-log :read line)
   (process-line (parser/parse line) irc))
 
+;; This is the default raw-log callback function. It logs input and output to
+;; stdout, which is the most common use case.
+(defn stdout-callback
+  "A raw-log callback that prints to stdout."
+  [_ type s]
+  (println
+   (case type
+     :write (str ">> " s)
+     :read s)))
+
 (defn connect
   "Connect to IRC. Connects in another thread and returns a big fat ref of
    data about the connection, you and IRC in general."
@@ -127,7 +157,9 @@
                   :real-name real-name
                   :username username
                   :callbacks callbacks
-                  :init-mode mode})]
+                  :init-mode mode
+                  :network host
+                  :ready? (promise)})]
     (.start
      (Thread.
       (fn []
