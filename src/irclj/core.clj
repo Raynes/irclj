@@ -37,6 +37,19 @@
     (binding [*out* (get-in @irc [:connection :out])]
       (println s))))
 
+;; You usually want to prefix your last parameter with a : so that IRC knows
+;; to allow it to contain spaces and parse it all as one param. This is for
+;; that. `write-irc-line` *could* do this itself, but I think this is sufficient.
+;; If `write-irc-line` did it internally, it would mean doing some very expensive
+;; operations. While in our simple case it would hardly matter, this is really
+;; just as easy and more flexible. Tacking `(end ..)` on your last param if
+;; necessary isn't much of a chore.
+(defn end
+  "If param is nil, return nil. Otherwise, return param with : prefixed."
+  [param]
+  (when (seq param)
+    (str \: param)))
+
 ;; We're going handle IRC messages polymorphically. Whatever IRC commands we
 ;; support are implemented as process-line implementations. process-line takes
 ;; the result of irclj.parser/parse.
@@ -139,7 +152,12 @@
   "Part from channels. A channel is either a string or a vector of string and key.
    If message is nil, no part message is used."
   [irc message & channels]
-  (write-irc-line irc "PART" (string/join ",") (when message (str ":"  message))))
+  (write-irc-line irc "PART" (string/join "," channels) (end message)))
+
+(defn send-message
+  "Sends a PRIVMSG to a user or channel."
+  [irc target & s]
+  (write-irc-line irc "PRIVMSG" target (end (string/join " " s))))
 
 ;; ## Connections
 
@@ -159,7 +177,7 @@
   [irc]
   (let [{:keys [nick username real-name init-mode]} @irc]
     (write-irc-line irc "NICK" nick)
-    (write-irc-line irc "USER" (or username nick) init-mode "*" (str ":" real-name))))
+    (write-irc-line irc "USER" (or username nick) init-mode "*" (end real-name))))
 
 ;; If something happens with the connection that we don't otherwise notice,
 ;; we want it to be able to timeout appropriately so that we can move along.
