@@ -26,7 +26,7 @@
     (apply callback irc args)))
 
 ;; We want to allow users to log raw input and output in whatever way
-;; they pleae. To that, we'll fire the :raw-log callback function when
+;; they please. To that, we'll fire the :raw-log callback function when
 ;; we read and write.
 (defn write-irc-line
   "Writes a line to the IRC connection and fires the raw-log callback.
@@ -44,16 +44,22 @@
   "Process a parsed IRC message."
   (fn [m _] (:command m)))
 
+;; ### Numeric
+
 ;; At this point, the IRC server has registered our connection. We can communicate
 ;; this by delivering our ready? promise.
 (defmethod process-line "001" [m irc]
-  (deliver (:ready? @irc) true))
+  (deliver (:ready? @irc) true)
+  (fire irc :001 m))
 
 ;; We can't really recover from a nick-already-in-use error. Just throw an
 ;; exception.
 (defmethod process-line "433" [m irc]
+  (fire irc :433 m)
   (stone/throw+ (into @irc {:parsed-message m})
                 "Nick is already taken. Can't recover."))
+
+;; ### Wordy Responses
 
 ;; PONG!
 (defmethod process-line "PING" [m irc]
