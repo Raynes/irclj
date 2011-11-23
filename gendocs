@@ -1,0 +1,1 @@
+lein marg src/irclj/core.clj src/irclj/parser.clj -f index.html
