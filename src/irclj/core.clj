@@ -46,6 +46,42 @@
 
 ;; ### Numeric
 
+(defn- parse-prefix
+  "Parses the PREFIX section of an ISUPPORT message. Returns a map of symbols
+   to their corresponding modes."
+  [{:keys [raw]}]
+  (when-let [[modes prefixes] (next (re-find #"PREFIX=\((.*?)\)(\S+)" raw))]
+    (zipmap prefixes modes)))
+
+;; We want to parse this line to find out which modes a user can have (operator,
+;; voice, etc).
+(defmethod process-line "005" [m irc]
+  (when-let [prefixes (parse-prefix m)]
+    (dosync (alter irc assoc :prefixes prefixes))))
+
+(defn- nick-parser
+  "Returns a function that parses a nick, returning a map where the nick
+   is the key and the value is another map containing a :mode key which is
+   either the user's mode (determined by the first character of the nick) if
+   it is present in prefixes or nil if not."
+  [prefixes]
+  (fn [nick]
+    (let [prefix (-> nick first prefixes)]
+      [(if prefix (subs nick 1) nick) {:mode prefix}])))
+
+(defmethod process-line "353" [{:keys [params]} irc]
+  (let [[_ indicator channel names] params
+        names (into {}
+                    (map (nick-parser (:prefixes @irc))
+                         (string/split names #" ")))]
+    
+    (dosync
+     (alter irc update-in [:channel channel]
+            (fn [old]
+              (-> old
+                  (assoc :indicator indicator)
+                  (update-in [:users] #(into names %))))))))
+
 ;; At this point, the IRC server has registered our connection. We can communicate
 ;; this by delivering our ready? promise.
 (defmethod process-line "001" [m irc]
