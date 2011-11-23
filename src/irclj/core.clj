@@ -69,6 +69,7 @@
     (let [prefix (-> nick first prefixes)]
       [(if prefix (subs nick 1) nick) {:mode prefix}])))
 
+;; 353 gives you the list of users that are in a channel. We want this.
 (defmethod process-line "353" [{:keys [params]} irc]
   (let [[_ indicator channel names] params
         names (into {}
