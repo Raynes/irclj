@@ -2562,7 +2562,19 @@ we read and write.</p>
   (let [s (string/join &quot; &quot; s)]
     (fire irc :raw-log :write s)
     (binding [*out* (get-in @irc [:connection :out])]
-      (println s))))</pre></td></tr><tr><td class="docs"><p>Process a parsed IRC message.</p>
+      (println s))))</pre></td></tr><tr><td class="docs"><p>If param is nil, return nil. Otherwise, return param with : prefixed.</p>
+
+<p>You usually want to prefix your last parameter with a : so that IRC knows
+to allow it to contain spaces and parse it all as one param. This is for
+that. <code>write-irc-line</code> <em>could</em> do this itself, but I think this is sufficient.
+If <code>write-irc-line</code> did it internally, it would mean doing some very expensive
+operations. While in our simple case it would hardly matter, this is really
+just as easy and more flexible. Tacking <code>(end ..)</code> on your last param if
+necessary isn't much of a chore.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn end
+  [param]
+  (when (seq param)
+    (str \: param)))</pre></td></tr><tr><td class="docs"><p>Process a parsed IRC message.</p>
 
 <p>We're going handle IRC messages polymorphically. Whatever IRC commands we
 support are implemented as process-line implementations. process-line takes
@@ -2639,7 +2651,10 @@ anotherkeyedchan.</p>
    If message is nil, no part message is used.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn part-channels
   [irc message &amp; channels]
-  (write-irc-line irc &quot;PART&quot; (string/join &quot;,&quot;) (when message (str &quot;:&quot;  message))))</pre></td></tr><tr><td class="docs"><h2>Connections</h2>
+  (write-irc-line irc &quot;PART&quot; (string/join &quot;,&quot; channels) (end message)))</pre></td></tr><tr><td class="docs"><p>Sends a PRIVMSG to a user or channel.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn send-message
+  [irc target &amp; s]
+  (write-irc-line irc &quot;PRIVMSG&quot; target (end (string/join &quot; &quot; s))))</pre></td></tr><tr><td class="docs"><h2>Connections</h2>
 </td><td class="codes"></td></tr><tr><td class="docs"><p>Creates a socket from a host and a port. Returns a map
    of the socket and readers over its input and output.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn create-connection
@@ -2655,7 +2670,7 @@ with the IRC network.</p>
   [irc]
   (let [{:keys [nick username real-name init-mode]} @irc]
     (write-irc-line irc &quot;NICK&quot; nick)
-    (write-irc-line irc &quot;USER&quot; (or username nick) init-mode &quot;*&quot; (str &quot;:&quot; real-name))))</pre></td></tr><tr><td class="docs"><p>Set a timeout on the socket. timeout is in milliseconds.</p>
+    (write-irc-line irc &quot;USER&quot; (or username nick) init-mode &quot;*&quot; (end real-name))))</pre></td></tr><tr><td class="docs"><p>Set a timeout on the socket. timeout is in milliseconds.</p>
 
 <p>If something happens with the connection that we don't otherwise notice,
 we want it to be able to timeout appropriately so that we can move along.
