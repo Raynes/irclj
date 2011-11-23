@@ -2569,7 +2569,43 @@ support are implemented as process-line implementations. process-line takes
 the result of irclj.parser/parse.</p>
 </td><td class="codes"><pre class="brush: clojure">(defmulti process-line
   (fn [m _] (:command m)))</pre></td></tr><tr><td class="docs"><h3>Numeric</h3>
-</td><td class="codes"></td></tr><tr><td class="docs"><p>At this point, the IRC server has registered our connection. We can communicate
+</td><td class="codes"></td></tr><tr><td class="docs"><p>Parses the PREFIX section of an ISUPPORT message. Returns a map of symbols
+   to their corresponding modes.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn- parse-prefix
+  [{:keys [raw]}]
+  (when-let [[modes prefixes] (next (re-find #&quot;PREFIX=\((.*?)\)(\S+)&quot; raw))]
+    (zipmap prefixes modes)))</pre></td></tr><tr><td class="docs"><p>We want to parse this line to find out which modes a user can have (operator,
+voice, etc).</p>
+</td><td class="codes"><pre class="brush: clojure">(defmethod process-line &quot;005&quot; [m irc]
+  (when-let [prefixes (parse-prefix m)]
+    (dosync (alter irc assoc :prefixes prefixes))))</pre></td></tr><tr><td class="docs"><p>IRC sends 332 to tell you what the channel topic is (if present).</p>
+</td><td class="codes"><pre class="brush: clojure">(defmethod process-line &quot;332&quot; [{:keys [params]} irc]
+  (dosync (alter irc assoc-in [:channels (first params) :topic] (last params))))</pre></td></tr><tr><td class="docs"><p>Returns a function that parses a nick, returning a map where the nick
+   is the key and the value is another map containing a :mode key which is
+   either the user's mode (determined by the first character of the nick) if
+   it is present in prefixes or nil if not.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn- nick-parser
+  [prefixes]
+  (fn [nick]
+    (let [prefix (-&gt; nick first prefixes)]
+      [(if prefix (subs nick 1) nick) {:mode prefix}])))</pre></td></tr><tr><td class="docs"><p>A map of indicators from 353 to their meanings.</p>
+</td><td class="codes"><pre class="brush: clojure">(def 
+  indicators
+  {&quot;@&quot; :secret
+   &quot;*&quot; :private
+   &quot;=&quot; :public})</pre></td></tr><tr><td class="docs"><p>353 gives you the list of users that are in a channel. We want this.</p>
+</td><td class="codes"><pre class="brush: clojure">(defmethod process-line &quot;353&quot; [{:keys [params]} irc]
+  (let [[_ indicator channel names] params
+        names (into {}
+                    (map (nick-parser (:prefixes @irc))
+                         (string/split names #&quot; &quot;)))]
+    
+    (dosync
+     (alter irc update-in [:channel channel]
+            (fn [old]
+              (-&gt; old
+                  (assoc :indicator (doto (indicators indicator) prn))
+                  (update-in [:users] #(into names %))))))))</pre></td></tr><tr><td class="docs"><p>At this point, the IRC server has registered our connection. We can communicate
 this by delivering our ready? promise.</p>
 </td><td class="codes"><pre class="brush: clojure">(defmethod process-line &quot;001&quot; [m irc]
   (deliver (:ready? @irc) true)
