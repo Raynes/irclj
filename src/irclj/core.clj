@@ -170,6 +170,11 @@
    (alter irc assoc-in [:channels (first params) :users nick] nil))
   (fire irc :join m))
 
+(defmethod process-line "PART" [{:keys [nick params] :as m} irc]
+  (dosync
+   (alter irc update-in [:channels (first params) :users] dissoc nick))
+  (fire irc :part m))
+
 ;; We don't want to die if something that we don't support happens. We can just
 ;; ignore it instead.
 (defmethod process-line :default [& _] nil)
