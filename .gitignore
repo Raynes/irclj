@@ -3,4 +3,5 @@ classes
 autodoc
 *jar
 pom.xml
-.cake
+.lein*
+docs/
