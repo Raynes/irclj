@@ -159,6 +159,16 @@
   [irc target & s]
   (write-irc-line irc "PRIVMSG" target (end (string/join " " s))))
 
+(defn identify
+  "Identify with NICKSERV."
+  [irc password]
+  (send-message irc "NickServ" "IDENTIFY" password))
+
+(defn set-nick
+  "Change your nickname on IRC."
+  [irc nick]
+  (write-irc-line irc "NICK" nick))
+
 ;; ## Connections
 
 (defn create-connection
