@@ -73,8 +73,19 @@
     (dosync (alter irc assoc :prefixes prefixes))))
 
 ;; IRC sends 332 to tell you what the channel topic is (if present).
-(defmethod process-line "332" [{:keys [params]} irc]
-  (dosync (alter irc assoc-in [:channels (second params) :topic] (last params))))
+(defmethod process-line "332" [{:keys [params] :as m} irc]
+  (dosync (alter irc assoc-in [:channels (second params) :topic]
+                 {:text (last params)}))
+  (fire irc :332 m))
+
+;; IRC sends 333 to tell you the user who last set the topic and when.
+(defmethod process-line "333" [{:keys [params] :as m} irc]
+  (let [[_ channel nick timestamp] params]
+    (dosync
+     (alter irc update-in [:channels channel :topic]
+            assoc
+            :nick nick
+            :timestamp timestamp))))
 
 (defn- nick-parser
   "Returns a function that parses a nick, returning a map where the nick
