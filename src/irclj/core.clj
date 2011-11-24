@@ -31,18 +31,24 @@
         chans (concat (map first keyed) regular)
         keys (map last keyed)]
     (when @(:ready? @irc)
-      (connection/write-irc-line irc "JOIN" (string/join "," chans) (string/join "," keys)))))
+      (connection/write-irc-line irc
+                                 "JOIN"
+                                 (string/join "," chans)
+                                 (string/join "," keys)))))
 
 (defn part-channels
   "Part from channels. A channel is either a string or a vector of string and key.
    If message is nil, no part message is used."
   [irc message & channels]
-  (connection/write-irc-line irc "PART" (string/join "," channels) (connection/end message)))
+  (connection/write-irc-line irc "PART"
+                             (string/join "," channels)
+                             (connection/end message)))
 
 (defn send-message
   "Sends a PRIVMSG to a user or channel."
   [irc target & s]
-  (connection/write-irc-line irc "PRIVMSG" target (connection/end (string/join " " s))))
+  (connection/write-irc-line irc "PRIVMSG" target
+                             (connection/end (string/join " " s))))
 
 (defn identify
   "Identify with NICKSERV. Will block until the connection is registered."
