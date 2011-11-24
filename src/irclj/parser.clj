@@ -47,7 +47,9 @@
                         2)
         split-single (string/split single #" ")]
     (if multi
-      (conj split-single multi)
+      (if (seq single)
+        (conj split-single multi)
+        [multi])
       split-single)))
 
 (defn parse
