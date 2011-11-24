@@ -2551,7 +2551,7 @@ join several channels at once. We're doing some fun stuff to make
 sure that the keyed channels come first. They have to come first
 because if you were to try something like so:
 <code>JOIN keyedchan,nonkeyed,anotherkeyedchan key,key2</code>
-then IRC would thing that key2 is for nonkeyed and not for
+then IRC would think that key2 is for nonkeyed and not for
 anotherkeyedchan.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn join-channels
   [irc &amp; channels]
@@ -2586,7 +2586,7 @@ anotherkeyedchan.</p>
   [irc line]
   (events/fire irc :raw-log :read line)
   (process/process-line (parser/parse line) irc))</pre></td></tr><tr><td class="docs"><p>Connect to IRC. Connects in another thread and returns a big fat ref of
-   data about the connection, you and IRC in general.</p>
+   data about the connection, you, and IRC in general.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn connect
   [host port nick &amp;
    {:keys [timeout real-name mode username callbacks]
@@ -2613,7 +2613,7 @@ anotherkeyedchan.</p>
             (do (process irc line)
                 (recur (rest lines)))
             (events/fire irc :on-shutdown))))))
-    irc))</pre></td></tr><tr><td class="docs"><p>Close the socket associate with an IRC connection.</p>
+    irc))</pre></td></tr><tr><td class="docs"><p>Close the socket associated with an IRC connection.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn kill
   [irc]
   (.close (get-in @irc [:connection :socket])))</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#irclj.parser" name="irclj.parser"><h1 class="project-name">irclj.parser</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs"><p>IRC messages -> Clojure maps.</p>
