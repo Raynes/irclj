@@ -21,7 +21,7 @@
 ;; sure that the keyed channels come first. They have to come first
 ;; because if you were to try something like so:
 ;; `JOIN keyedchan,nonkeyed,anotherkeyedchan key,key2`
-;; then IRC would thing that key2 is for nonkeyed and not for
+;; then IRC would think that key2 is for nonkeyed and not for
 ;; anotherkeyedchan.
 (defn join-channels
   "Joins channels. A channel is either a string or a vector of string and key.
@@ -70,7 +70,7 @@
 
 (defn connect
   "Connect to IRC. Connects in another thread and returns a big fat ref of
-   data about the connection, you and IRC in general."
+   data about the connection, you, and IRC in general."
   [host port nick &
    {:keys [timeout real-name mode username callbacks]
     :or {real-name "irclj", mode 0
@@ -99,6 +99,6 @@
     irc))
 
 (defn kill
-  "Close the socket associate with an IRC connection."
+  "Close the socket associated with an IRC connection."
   [irc]
   (.close (get-in @irc [:connection :socket])))
