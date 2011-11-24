@@ -74,7 +74,7 @@
 
 ;; IRC sends 332 to tell you what the channel topic is (if present).
 (defmethod process-line "332" [{:keys [params]} irc]
-  (dosync (alter irc assoc-in [:channels (first params) :topic] (last params))))
+  (dosync (alter irc assoc-in [:channels (second params) :topic] (last params))))
 
 (defn- nick-parser
   "Returns a function that parses a nick, returning a map where the nick
