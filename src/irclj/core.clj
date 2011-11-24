@@ -100,7 +100,7 @@
                          (string/split names #" ")))]
     
     (dosync
-     (alter irc update-in [:channel channel]
+     (alter irc update-in [:channels channel]
             (fn [old]
               (-> old
                   (assoc :indicator (doto (indicators indicator) prn))
