@@ -1,1 +1,1 @@
-lein marg src/irclj/core.clj src/irclj/parser.clj -f index.html
+lein marg src/irclj/core.clj src/irclj/parser.clj src/irclj/connection.clj src/irclj/events.clj src/irclj/process.clj -f index.html
