@@ -153,6 +153,11 @@
                 (update-in old [:channels] update-channels nick new-nick))))))
   (fire irc :nick m))
 
+(defmethod process-line "JOIN" [{:keys [nick params] :as m} irc]
+  (dosync
+   (alter irc assoc-in [:channels (first params) :users nick] nil))
+  (fire irc :join m))
+
 ;; We don't want to die if something that we don't support happens. We can just
 ;; ignore it instead.
 (defmethod process-line :default [& _] nil)
@@ -188,9 +193,10 @@
   (write-irc-line irc "PRIVMSG" target (end (string/join " " s))))
 
 (defn identify
-  "Identify with NICKSERV."
+  "Identify with NICKSERV. Will block until the connection is registered."
   [irc password]
-  (send-message irc "NickServ" "IDENTIFY" password))
+  (when @(:ready? @irc)
+    (send-message irc "NickServ" "IDENTIFY" password)))
 
 (defn set-nick
   "Change your nickname on IRC."
