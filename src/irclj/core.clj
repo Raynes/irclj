@@ -258,3 +258,8 @@
                 (recur (rest lines)))
             (fire irc :on-shutdown))))))
     irc))
+
+(defn kill
+  "Close the socket associate with an IRC connection."
+  [irc]
+  (.close (get-in @irc [:connection :socket])))
