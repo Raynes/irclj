@@ -125,6 +125,34 @@
 (defmethod process-line "PING" [m irc]
   (write-irc-line irc (.replace (:raw m) "PING" "PONG")))
 
+;; We need to process this so that we can reflect NICK changes. This is
+;; a fairly complicated process. NICK messages give you no information
+;; at all about what channels the user changing their nick is in. This
+;; is understandable, but it means we have to work our asses off a bit.
+;; This gnarly code is necessary because we need to update the user list
+;; in each channel. Since we don't know *which* channels, we have to look
+;; at all of them.
+(defmethod process-line "NICK" [{:keys [nick params] :as m} irc]
+  (letfn [(update-nicks [users old-nick new-nick]  
+            (when users
+              (let [old-data (users old-nick)]
+                (assoc (dissoc users old-nick) new-nick old-data))))
+          
+          (update-channels [channels old-nick new-nick]
+            (into {}
+                  (for [[channel data] channels]
+                    [channel
+                     (update-in data [:users] update-nicks old-nick new-nick)])))]
+    (dosync
+     (alter irc
+            (fn [old]
+              (let [new-nick (first params)
+                    old (if (= (:nick @irc) nick)
+                          (assoc old :nick new-nick)
+                          old)]
+                (update-in old [:channels] update-channels nick new-nick))))))
+  (fire irc :nick m))
+
 ;; We don't want to die if something that we don't support happens. We can just
 ;; ignore it instead.
 (defmethod process-line :default [& _] nil)
