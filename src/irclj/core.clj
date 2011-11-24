@@ -175,9 +175,10 @@
    (alter irc update-in [:channels (first params) :users] dissoc nick))
   (fire irc :part m))
 
-;; We don't want to die if something that we don't support happens. We can just
-;; ignore it instead.
-(defmethod process-line :default [& _] nil)
+;; We obviously don't need a defmethod for every single protocol response,
+;; so we'll automagically fire callbacks for any response we don't recognize.
+(defmethod process-line :default [m irc]
+  (fire irc (-> m :command string/lower-case keyword) m))
 
 ;; ## IRC Commands
 
