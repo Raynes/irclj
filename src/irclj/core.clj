@@ -61,6 +61,11 @@
   [irc nick]
   (connection/write-irc-line irc "NICK" nick))
 
+(defn mode
+  "Get or set the mode for a channel."
+  [irc channel & [modes]]
+  (connection/write-irc-line irc "MODE" channel modes))
+
 ;; We fire our raw-log callback for the lines we read from IRC as well.
 (defn- process
   "Prepare and process a line from IRC."
