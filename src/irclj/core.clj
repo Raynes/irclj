@@ -136,6 +136,17 @@
 (defmethod process-line "PING" [m irc]
   (write-irc-line irc (.replace (:raw m) "PING" "PONG")))
 
+(defn- update-nicks [users old-nick new-nick]  
+  (when users
+    (let [old-data (users old-nick)]
+      (assoc (dissoc users old-nick) new-nick old-data))))
+
+(defn- update-channels [channels old-nick new-nick]
+  (into {}
+        (for [[channel data] channels]
+          [channel
+           (update-in data [:users] update-nicks old-nick new-nick)])))
+
 ;; We need to process this so that we can reflect NICK changes. This is
 ;; a fairly complicated process. NICK messages give you no information
 ;; at all about what channels the user changing their nick is in. This
@@ -144,21 +155,11 @@
 ;; in each channel. Since we don't know *which* channels, we have to look
 ;; at all of them.
 (defmethod process-line "NICK" [{:keys [nick params] :as m} irc]
-  (letfn [(update-nicks [users old-nick new-nick]  
-            (when users
-              (let [old-data (users old-nick)]
-                (assoc (dissoc users old-nick) new-nick old-data))))
-          
-          (update-channels [channels old-nick new-nick]
-            (into {}
-                  (for [[channel data] channels]
-                    [channel
-                     (update-in data [:users] update-nicks old-nick new-nick)])))]
+  (let [new-nick (first params)]
     (dosync
      (alter irc
             (fn [old]
-              (let [new-nick (first params)
-                    old (if (= (:nick @irc) nick)
+              (let [old (if (= (:nick @irc) nick)
                           (assoc old :nick new-nick)
                           old)]
                 (update-in old [:channels] update-channels nick new-nick))))))
