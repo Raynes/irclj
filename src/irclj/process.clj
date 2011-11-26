@@ -77,6 +77,13 @@
   (deliver (:ready? @irc) true)
   (events/fire irc :001 m))
 
+;; So we can keep mode lists up to date.
+(defmethod process-line "324" [{:keys [params] :as m} irc]
+  (let [[_ channel & modes] params]
+    (dosync
+     (alter irc assoc-in [:channels channel :mode] (string/join " " modes)))
+    (events/fire irc :324 m)))
+
 ;; We can't really recover from a nick-already-in-use error. Just throw an
 ;; exception.
 (defmethod process-line "433" [m irc]
@@ -127,6 +134,10 @@
   (dosync
    (alter irc update-in [:channels (first params) :users] dissoc nick))
   (events/fire irc :part m))
+
+(defmethod process-line "MODE" [m irc]
+  (connection/write-irc-line irc "MODE" (first (:params m)))
+  (events/fire irc :mode m))
 
 ;; We obviously don't need a defmethod for every single protocol response,
 ;; so we'll automagically fire callbacks for any response we don't recognize.
