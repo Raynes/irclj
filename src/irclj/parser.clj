@@ -1,5 +1,3 @@
-;; ## Look ma, no regexp!
-;;
 ;; This is a lightweight parser that takes an IRC message and generates
 ;; a Clojure map of information from that message. One piece of terminology
 ;; to keep in mind is 'line sequence'. In this context, it means the IRC
@@ -7,8 +5,6 @@
 (ns irclj.parser
   "IRC messages -> Clojure maps."
   (:require [clojure.string :as string]))
-
-;; Look ma, no regexp!
 
 ;; Prefixes are optional, so this might return nil. We'll use the
 ;; result of this to know where to parse other things in the message
