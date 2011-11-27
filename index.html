@@ -3123,16 +3123,22 @@ $(document).ready(function() {
 
 })
 </script><title>irclj -- Marginalia</title></head><body><table><tr><td class="docs"><div class="header"><h1 class="project-name">irclj</h1><h2 class="project-version">0.5.0-SNAPSHOT</h2><br /><p>A simple IRC library/bot framework.</p>
-</div><div class="dependencies"><h3>dependencies</h3><table><tr><td class="dep-name">org.clojure/clojure</td><td class="dotted"><hr /></td><td class="dep-version">1.3.0</td></tr><tr><td class="dep-name">slingshot</td><td class="dotted"><hr /></td><td class="dep-version">0.9.0</td></tr></table></div></td><td class="codes" style="text-align: center; vertical-align: middle;color: #666;padding-right:20px"><br /><br /><br />(this space intentionally left almost blank)</td></tr><tr><td class="docs"><div class="toc"><a name="toc"><h3>namespaces</h3></a><ul><li><a href="#irclj.core">irclj.core</a></li><li><a href="#irclj.parser">irclj.parser</a></li><li><a href="#irclj.connection">irclj.connection</a></li><li><a href="#irclj.events">irclj.events</a></li><li><a href="#irclj.process">irclj.process</a></li></ul></div></td><td class="codes">&nbsp;</td></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#irclj.core" name="irclj.core"><h1 class="project-name">irclj.core</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs"><p>An IRC library for Clojure.</p>
+</div><div class="dependencies"><h3>dependencies</h3><table><tr><td class="dep-name">org.clojure/clojure</td><td class="dotted"><hr /></td><td class="dep-version">1.3.0</td></tr></table></div></td><td class="codes" style="text-align: center; vertical-align: middle;color: #666;padding-right:20px"><br /><br /><br />(this space intentionally left almost blank)</td></tr><tr><td class="docs"><div class="toc"><a name="toc"><h3>namespaces</h3></a><ul><li><a href="#irclj.core">irclj.core</a></li><li><a href="#irclj.parser">irclj.parser</a></li><li><a href="#irclj.connection">irclj.connection</a></li><li><a href="#irclj.events">irclj.events</a></li><li><a href="#irclj.process">irclj.process</a></li></ul></div></td><td class="codes">&nbsp;</td></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#irclj.core" name="irclj.core"><h1 class="project-name">irclj.core</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs"><p>An IRC library for Clojure.</p>
 
 <p>Irclj is an IRC library for Clojure. On one hand, the goal is to make it as flexible
 as possible and allow for any number of use cases. On the other hand, I want it to
 be super-easy to write IRC bots with Irclj.</p>
 
 <p>Irclj takes the approach of stuffing all the information about an IRC connection
-in a single ref that the user will hold and pass around. It also has a callback
-system. You can register callbacks for things that happen on IRC, such as a PRIVMSG
-or a notice.</p>
+in a single ref that the user will hold and pass around.</p>
+
+<p>Irclj is also entirely asynchronous. Everything is based on events. You can register
+callbacks for things that happen on IRC, such as a PRIVMSG or a NOTICE. Things that
+you might expect to return info doesn't actually return anything. Most of Irclj's
+functions return immediately, since all they do is sent a message to IRC. The info
+is collected later when IRC sends the requested info to the client. It might not be
+entirely clear how to get certain information, but you can almost always collect
+the info you want just by registering a callback that handles the data.</p>
 </td><td class="codes"><pre class="brush: clojure">(ns irclj.core
   (:require [clojure.string :as string]
             [irclj.parser :as parser]
@@ -3149,44 +3155,49 @@ because if you were to try something like so:
 <code>JOIN keyedchan,nonkeyed,anotherkeyedchan key,key2</code>
 then IRC would think that key2 is for nonkeyed and not for
 anotherkeyedchan.</p>
-</td><td class="codes"><pre class="brush: clojure">(defn join-channels
+</td><td class="codes"><pre class="brush: clojure">(defn join
   [irc &amp; channels]
   (let [[keyed regular] ((juxt filter remove) vector? channels)
         chans (concat (map first keyed) regular)
-        keys (map last keyed)]
+        keys (map last keyed)
+        comma-join (partial string/join &quot;,&quot;)]
     (when @(:ready? @irc)
-      (connection/write-irc-line irc
-                                 &quot;JOIN&quot;
-                                 (string/join &quot;,&quot; chans)
-                                 (string/join &quot;,&quot; keys)))))</pre></td></tr><tr><td class="docs"><p>Part from channels. A channel is either a string or a vector of string and key.
-   If message is nil, no part message is used.</p>
-</td><td class="codes"><pre class="brush: clojure">(defn part-channels
-  [irc message &amp; channels]
-  (connection/write-irc-line irc &quot;PART&quot;
-                             (string/join &quot;,&quot; channels)
-                             (connection/end message)))</pre></td></tr><tr><td class="docs"><p>Sends a PRIVMSG to a user or channel.</p>
-</td><td class="codes"><pre class="brush: clojure">(defn send-message
+      (connection/write-irc-line irc &quot;JOIN&quot; (comma-join chans) (comma-join keys)))))</pre></td></tr><tr><td class="docs"><p>Part from channels. A channel is either a string or a vector of string and key.
+   If a :message key is passed, then that message is used as the parting message.
+   If this key is passed, it <strong>must</strong> be the last thing passed to this function.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn part
+  [irc &amp; channels-and-opts]
+  (let [[channels opts] (split-with (complement keyword?) channels-and-opts)
+        opts (apply hash-map opts)]
+    (connection/write-irc-line irc &quot;PART&quot;
+                               (string/join &quot;,&quot; channels)
+                               (when-let [message (:message opts)]
+                                 (connection/end message)))))</pre></td></tr><tr><td class="docs"><p>Sends a PRIVMSG to a user or channel.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn message
   [irc target &amp; s]
   (connection/write-irc-line irc &quot;PRIVMSG&quot; target
-                             (connection/end (string/join &quot; &quot; s))))</pre></td></tr><tr><td class="docs"><p>Identify with NICKSERV. Will block until the connection is registered.</p>
+                             (connection/end (string/join &quot; &quot; s))))</pre></td></tr><tr><td class="docs">
 </td><td class="codes"><pre class="brush: clojure">(defn identify
+  &quot;Identify with NICKSERV. Will block until the connection is registered.&quot;
   [irc password]
   (when @(:ready? @irc)
-    (send-message irc &quot;NickServ&quot; &quot;IDENTIFY&quot; password)))</pre></td></tr><tr><td class="docs"><p>Change your nickname on IRC.</p>
+    (send-message irc &quot;NickServ&quot; &quot;IDENTIFY&quot; password)))</pre></td></tr><tr><td class="docs">
 </td><td class="codes"><pre class="brush: clojure">(defn set-nick
+  &quot;Change your nickname on IRC.&quot;
   [irc nick]
-  (connection/write-irc-line irc &quot;NICK&quot; nick))</pre></td></tr><tr><td class="docs"><p>Get or set the mode for a channel.</p>
+  (connection/write-irc-line irc &quot;NICK&quot; nick))</pre></td></tr><tr><td class="docs">
 </td><td class="codes"><pre class="brush: clojure">(defn mode
+  &quot;Request or set the mode for a channel.&quot;
   [irc channel &amp; [modes]]
-  (connection/write-irc-line irc &quot;MODE&quot; channel modes))</pre></td></tr><tr><td class="docs"><p>Prepare and process a line from IRC.</p>
-
-<p>We fire our raw-log callback for the lines we read from IRC as well.</p>
+  (connection/write-irc-line irc &quot;MODE&quot; channel modes))</pre></td></tr><tr><td class="docs"><p>We fire our raw-log callback for the lines we read from IRC as well.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn- process
+  &quot;Prepare and process a line from IRC.&quot;
   [irc line]
   (events/fire irc :raw-log :read line)
-  (process/process-line (parser/parse line) irc))</pre></td></tr><tr><td class="docs"><p>Connect to IRC. Connects in another thread and returns a big fat ref of
-   data about the connection, you, and IRC in general.</p>
+  (process/process-line (parser/parse line) irc))</pre></td></tr><tr><td class="docs">
 </td><td class="codes"><pre class="brush: clojure">(defn connect
+  &quot;Connect to IRC. Connects in another thread and returns a big fat ref of
+   data about the connection, you, and IRC in general.&quot;
   [host port nick &amp;
    {:keys [timeout real-name mode username callbacks]
     :or {real-name &quot;irclj&quot;, mode 0
@@ -3212,20 +3223,18 @@ anotherkeyedchan.</p>
             (do (process irc line)
                 (recur (rest lines)))
             (events/fire irc :on-shutdown))))))
-    irc))</pre></td></tr><tr><td class="docs"><p>Close the socket associated with an IRC connection.</p>
+    irc))</pre></td></tr><tr><td class="docs">
 </td><td class="codes"><pre class="brush: clojure">(defn kill
+  &quot;Close the socket associated with an IRC connection.&quot;
   [irc]
   (.close (get-in @irc [:connection :socket])))</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#irclj.parser" name="irclj.parser"><h1 class="project-name">irclj.parser</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs"><p>IRC messages -> Clojure maps.</p>
-
-<h2>Look ma, no regexp!</h2>
 
 <p>This is a lightweight parser that takes an IRC message and generates
 a Clojure map of information from that message. One piece of terminology
 to keep in mind is 'line sequence'. In this context, it means the IRC
 message broken up at spaces.</p>
 </td><td class="codes"><pre class="brush: clojure">(ns irclj.parser
-  (:require [clojure.string :as string]))</pre></td></tr><tr><td class="docs"><p>Look ma, no regexp!</p>
-</td><td class="codes"></td></tr><tr><td class="docs"><p>Takes a line sequence and if the first element is a string
+  (:require [clojure.string :as string]))</pre></td></tr><tr><td class="docs"><p>Takes a line sequence and if the first element is a string
    beginning with ':', return it minus the ':'.</p>
 
 <p>Prefixes are optional, so this might return nil. We'll use the
@@ -3461,7 +3470,19 @@ at all of them.</p>
 </td><td class="codes"><pre class="brush: clojure">(defmethod process-line &quot;PART&quot; [{:keys [nick params] :as m} irc]
   (dosync
    (alter irc update-in [:channels (first params) :users] dissoc nick))
-  (events/fire irc :part m))</pre></td></tr><tr><td class="docs"><p>We obviously don't need a defmethod for every single protocol response,
+  (events/fire irc :part m))</pre></td></tr><tr><td class="docs"><p>Modes are complicated. Parsing them and trying to update a bunch of data properly
+would be error-prone and pointless. Instead, we'll just let clients do that if
+they really want to. However, we will go ahead and request the MODE from IRC
+when we see that it has been changed, that way we can maintain the current channel
+modes.</p>
+</td><td class="codes"><pre class="brush: clojure">(defmethod process-line &quot;MODE&quot; [m irc]
+  (connection/write-irc-line irc &quot;MODE&quot; (first (:params m)))
+  (events/fire irc :mode m))</pre></td></tr><tr><td class="docs">
+</td><td class="codes"><pre class="brush: clojure">(defmethod process-line &quot;KICK&quot; [{:keys [params] :as m} irc]
+  (dosync
+   (alter irc update-in [:channels (first params) :users]
+          dissoc (second params)))
+  (events/fire irc :kick m))</pre></td></tr><tr><td class="docs"><p>We obviously don't need a defmethod for every single protocol response,
 so we'll automagically fire callbacks for any response we don't recognize.</p>
 </td><td class="codes"><pre class="brush: clojure">(defmethod process-line :default [m irc]
   (events/fire irc (-&gt; m :command string/lower-case keyword) m))</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr></table><div class="footer">Generated by <a href="https://github.com/fogus/marginalia">Marginalia</a>.&nbsp;&nbsp;Syntax highlighting provided by Alex Gorbatchev's <a href="http://alexgorbatchev.com/SyntaxHighlighter/">SyntaxHighlighter</a><div id="floating-toc"><ul><li class="floating-toc-li" id="floating-toc_irclj.core">irclj.core</li><li class="floating-toc-li" id="floating-toc_irclj.parser">irclj.parser</li><li class="floating-toc-li" id="floating-toc_irclj.connection">irclj.connection</li><li class="floating-toc-li" id="floating-toc_irclj.events">irclj.events</li><li class="floating-toc-li" id="floating-toc_irclj.process">irclj.process</li></ul></div></div><script type="text/javascript">SyntaxHighlighter.defaults['gutter'] = false;
