@@ -1,0 +1,156 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<!-- Created by htmlize-1.39 in css mode. -->
+<html>
+  <head>
+    <title>*slime-repl nil*</title>
+    <style type="text/css">
+    <!--
+      body {
+        color: #839496;
+        background-color: #002b36;
+      }
+      .slime-repl-input {
+        /* slime-repl-input-face */
+        font-weight: bold;
+      }
+      .slime-repl-output {
+        /* slime-repl-output-face */
+        color: #2aa198;
+      }
+      .slime-repl-prompt {
+        /* slime-repl-prompt-face */
+        color: #859900;
+      }
+      .slime-repl-result {
+      }
+
+      a {
+        color: inherit;
+        background-color: inherit;
+        font: inherit;
+        text-decoration: inherit;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+    -->
+    </style>
+  </head>
+  <body>
+    <pre>
+<span class="slime-repl-prompt">irclj.core&gt; </span><span class="slime-repl-input">(def irc (connect "irc.freenode.net" 6667 "shameful"))</span>
+<span class="slime-repl-output">&gt;&gt; NICK shameful
+&gt;&gt; USER shameful 0 * :irclj
+:pratchett.freenode.net NOTICE * :*** Looking up your hostname...
+:pratchett.freenode.net NOTICE * :*** Checking Ident
+:pratchett.freenode.net NOTICE * :*** Found your hostname
+:pratchett.freenode.net NOTICE * :*** No Ident response
+:pratchett.freenode.net 001 shameful :Welcome to the freenode Internet Relay Chat Network shameful
+:pratchett.freenode.net 002 shameful :Your host is pratchett.freenode.net[192.168.25.107/6667], running version ircd-seven-1.1.1
+:pratchett.freenode.net 003 shameful :This server was created Wed Sep 14 2011 at 13:13:51 PDT
+:pratchett.freenode.net 004 shameful pratchett.freenode.net ircd-seven-1.1.1 DOQRSZaghilopswz CFILMPQbcefgijklmnopqrstvz bkloveqjfI
+:pratchett.freenode.net 005 shameful CHANTYPES=# EXCEPTS INVEX CHANMODES=eIbq,k,flj,CFLMPQcgimnpstz CHANLIMIT=#:120 PREFIX=(ov)@+ MAXLIST=bqeI:100 MODES=4 NETWORK=freenode KNOCK STATUSMSG=@+ CALLERID=g :are supported by this server
+:pratchett.freenode.net 005 shameful CASEMAPPING=rfc1459 CHARSET=ascii NICKLEN=16 CHANNELLEN=50 TOPICLEN=390 ETRACE CPRIVMSG CNOTICE DEAF=D MONITOR=100 FNC TARGMAX=NAMES:1,LIST:1,KICK:1,WHOIS:1,PRIVMSG:4,NOTICE:4,ACCEPT:,MONITOR: :are supported by this server
+:pratchett.freenode.net 005 shameful EXTBAN=$,arx WHOX CLIENTVER=3.0 SAFELIST ELIST=CTU :are supported by this server
+:pratchett.freenode.net 251 shameful :There are 264 users and 63112 invisible on 28 servers
+:pratchett.freenode.net 252 shameful 28 :IRC Operators online
+:pratchett.freenode.net 253 shameful 6 :unknown connection(s)
+:pratchett.freenode.net 254 shameful 47234 :channels formed
+:pratchett.freenode.net 255 shameful :I have 4814 clients and 1 servers
+:pratchett.freenode.net 265 shameful 4814 5773 :Current local users 4814, max 5773
+:pratchett.freenode.net 266 shameful 63376 74899 :Current global users 63376, max 74899
+:pratchett.freenode.net 250 shameful :Highest connection count: 5774 (5773 clients) (1043395 connections received)
+:pratchett.freenode.net 375 shameful :- pratchett.freenode.net Message of the Day - 
+:pratchett.freenode.net 372 shameful :- Welcome to pratchett.freenode.net in Rennes, FR, EU.
+:pratchett.freenode.net 372 shameful :- Thanks to: FSF-France (http://www.fsffrance.org) for sponsoring this server!
+:pratchett.freenode.net 372 shameful :-  
+:pratchett.freenode.net 372 shameful :- PRATCHETT, TERRY (1948-).  Born in Buckinghamshire, England,
+:pratchett.freenode.net 372 shameful :- Pratchett is the famous author of the Discworld series of
+:pratchett.freenode.net 372 shameful :- novels and, more recently, an active Alzheimer's Disease awareness 
+:pratchett.freenode.net 372 shameful :- campaigner.
+:pratchett.freenode.net 372 shameful :- You're using freenode, a service of Peer-Directed Projects
+:pratchett.freenode.net 372 shameful :- Center Ltd (http://freenode.net/pdpc.shtml).
+:pratchett.freenode.net 372 shameful :-  
+:pratchett.freenode.net 372 shameful :- PDPC's 2011 fundraiser launched on 14th February 2011. We would 
+:pratchett.freenode.net 372 shameful :- like to invite all users of freenode to get involved in the fun
+:pratchett.freenode.net 372 shameful :- of our Valentine-themed fundraiser launch - see 
+:pratchett.freenode.net 372 shameful :- http://freenode.net/pdpc_valentine.shtml for more!
+:pratchett.freenode.net 372 shameful :-  
+:pratchett.freenode.net 372 shameful :- On the subject of fundraisers, we'd like to thank our donors, 
+:pratchett.freenode.net 372 shameful :- hardware and bandwith sponsors and especially  The Gallery 
+:pratchett.freenode.net 372 shameful :- Project (http://gallery.menalto.com/) and our corporate sponsor 
+:pratchett.freenode.net 372 shameful :- Canonical Ltd (http://www.canonical.com) for the generous 
+:pratchett.freenode.net 372 shameful :- support.
+:pratchett.freenode.net 372 shameful :-  
+:pratchett.freenode.net 372 shameful :- By connecting to freenode you indicate that you have read
+:pratchett.freenode.net 372 shameful :- and agree to adhere to our policies and procedures as per
+:pratchett.freenode.net 372 shameful :- the website (http://freenode.net). We would like to remind
+:pratchett.freenode.net 372 shameful :- you that unauthorized public logging of channels on the
+:pratchett.freenode.net 372 shameful :- network is prohibited. Public channel logging should only
+:pratchett.freenode.net 372 shameful :- take place where the channel owner(s) has requested this
+:pratchett.freenode.net 372 shameful :- and users of the channel are all made aware (if you are
+:pratchett.freenode.net 372 shameful :- publically logging your channel, you may wish to keep a
+:pratchett.freenode.net 372 shameful :- notice in topic and perhaps as a on-join message).
+:pratchett.freenode.net 372 shameful :-  
+:pratchett.freenode.net 372 shameful :- By registering your nickname with Nickserv you agree that you
+:pratchett.freenode.net 372 shameful :- are 13 years of age, or older. For more information about the
+:pratchett.freenode.net 372 shameful :- Children's Online Privacy Protection Act please see their
+:pratchett.freenode.net 372 shameful :- website at (http://www.coppa.org).
+:pratchett.freenode.net 372 shameful :-  
+:pratchett.freenode.net 372 shameful :- freenode runs an open proxy scanner. Your use of the network
+:pratchett.freenode.net 372 shameful :- indicates your acceptance of this policy. For details on
+:pratchett.freenode.net 372 shameful :- freenode network policy, please take a look at our policy
+:pratchett.freenode.net 372 shameful :- page (http://freenode.net/policy.shtml). Thank you for using
+:pratchett.freenode.net 372 shameful :- the network!
+:pratchett.freenode.net 372 shameful :-  
+:pratchett.freenode.net 372 shameful :- Don't forget to check out these other Peer-Directed Projects:
+:pratchett.freenode.net 372 shameful :- FOSSCON [http://www.fosscon.org] and fossevents 
+:pratchett.freenode.net 372 shameful :- [http://www.fossevents.org], and soon we'll repeat last years 
+:pratchett.freenode.net 372 shameful :- success with Picnics for Geeks across the globe, more info at 
+:pratchett.freenode.net 372 shameful :- [http://geeknic.org]
+:pratchett.freenode.net 372 shameful :-  
+:pratchett.freenode.net 372 shameful :- freenode is a service of Peer-Directed Projects Center Ltd,
+:pratchett.freenode.net 372 shameful :- a not for profit organisation registered in England and Wales.
+:pratchett.freenode.net 372 shameful :-  
+:pratchett.freenode.net 372 shameful :- If you support the work we do and wish to donate to the PDPC, 
+:pratchett.freenode.net 372 shameful :- you may do so over at http://freenode.net/pdpc_donations.shtml
+:pratchett.freenode.net 372 shameful :-  
+:pratchett.freenode.net 372 shameful :- Thank you for using freenode!
+:pratchett.freenode.net 372 shameful :-  
+:pratchett.freenode.net 372 shameful :- ***************************************************************
+:pratchett.freenode.net 372 shameful :- Please read http://blog.freenode.net/2010/11/be-safe-out-there/
+:pratchett.freenode.net 372 shameful :- ***************************************************************
+:pratchett.freenode.net 376 shameful :End of /MOTD command.
+:shameful MODE shameful :+i
+&gt;&gt; MODE shameful
+:NickServ!NickServ@services. NOTICE shameful :This nickname is registered. Please choose a different nickname, or identify via &#2;/msg NickServ identify &lt;password&gt;&#2;.
+</span><span class="slime-repl-result">#'irclj.core/irc
+</span><span class="slime-repl-prompt">irclj.core&gt; </span><span class="slime-repl-input">(identify irc "REDACTED")</span>
+<span class="slime-repl-output">&gt;&gt; PRIVMSG NickServ :IDENTIFY </span>REDACTED<span class="slime-repl-output">
+:pratchett.freenode.net 221 shameful +i
+:NickServ!NickServ@services. NOTICE shameful :You are now identified for &#2;shameful&#2;.
+</span><span class="slime-repl-result">nil
+</span><span class="slime-repl-prompt">irclj.core&gt; </span><span class="slime-repl-input">(join irc "#shameful")</span>
+<span class="slime-repl-output">&gt;&gt; JOIN #shameful 
+:shameful!~shameful@184-196-76-78.pools.spcsdns.net JOIN #shameful
+:pratchett.freenode.net 332 shameful #shameful :foo bar ba
+:pratchett.freenode.net 333 shameful #shameful Raynes!~macro@unaffiliated/raynes 1322036740
+:pratchett.freenode.net 353 shameful @ #shameful :shameful Raynes
+:secret
+:pratchett.freenode.net 366 shameful #shameful :End of /NAMES list.
+</span><span class="slime-repl-result">nil
+</span><span class="slime-repl-prompt">irclj.core&gt; </span><span class="slime-repl-input">(mode irc "#shameful")</span>
+<span class="slime-repl-output">&gt;&gt; MODE #shameful 
+:pratchett.freenode.net 324 shameful #shameful +nstl 100
+:pratchett.freenode.net 329 shameful #shameful 1322036401
+</span><span class="slime-repl-result">nil
+</span><span class="slime-repl-prompt">irclj.core&gt; </span><span class="slime-repl-input">(get-in @irc [:channels "#shameful" :users]) ; userlist</span>
+<span class="slime-repl-result">{"shameful" nil, "Raynes" {:mode nil}}
+</span><span class="slime-repl-prompt">irclj.core&gt; </span><span class="slime-repl-input">(part irc "#shameful")</span>
+<span class="slime-repl-output">&gt;&gt; PART #shameful 
+:shameful!~shameful@184-196-76-78.pools.spcsdns.net PART #shameful
+</span><span class="slime-repl-result">nil
+</span><span class="slime-repl-prompt">irclj.core&gt; </span><span class="slime-repl-input">(kill irc)</span>
+<span class="slime-repl-result">nil</span></pre>
+  </body>
+</html>
