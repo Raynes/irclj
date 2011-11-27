@@ -22,6 +22,11 @@
 
 ;; ## IRC Commands
 
+(def ^{:private true
+       :doc "clojure.string/join partially applied to \",\"."}
+  comma-join
+  (partial string/join ","))
+
 ;; The IRC spec requires that servers allow for a join command to
 ;; join several channels at once. We're doing some fun stuff to make
 ;; sure that the keyed channels come first. They have to come first
@@ -35,8 +40,7 @@
   [irc & channels]
   (let [[keyed regular] ((juxt filter remove) vector? channels)
         chans (concat (map first keyed) regular)
-        keys (map last keyed)
-        comma-join (partial string/join ",")]
+        keys (map last keyed)]
     (when @(:ready? @irc)
       (connection/write-irc-line irc "JOIN" (comma-join chans) (comma-join keys)))))
 
@@ -73,6 +77,12 @@
   "Request or set the mode for a channel."
   [irc channel & [modes]]
   (connection/write-irc-line irc "MODE" channel modes))
+
+(defn kick
+  "Kick a user from a channel."
+  [irc channel user & [message]]
+  (connection/write-irc-line irc "KICK" channel user
+                             (when message (connection/end message))))
 
 ;; We fire our raw-log callback for the lines we read from IRC as well.
 (defn- process
