@@ -3,9 +3,15 @@
 ;; be super-easy to write IRC bots with Irclj.
 ;;
 ;; Irclj takes the approach of stuffing all the information about an IRC connection
-;; in a single ref that the user will hold and pass around. It also has a callback
-;; system. You can register callbacks for things that happen on IRC, such as a PRIVMSG
-;; or a notice.
+;; in a single ref that the user will hold and pass around.
+;;
+;; Irclj is also entirely asynchronous. Everything is based on events. You can register
+;; callbacks for things that happen on IRC, such as a PRIVMSG or a NOTICE. Things that
+;; you might expect to return info doesn't actually return anything. Most of Irclj's
+;; functions return immediately, since all they do is sent a message to IRC. The info
+;; is collected later when IRC sends the requested info to the client. It might not be
+;; entirely clear how to get certain information, but you can almost always collect
+;; the info you want just by registering a callback that handles the data.
 (ns irclj.core
   "An IRC library for Clojure."
   (:require [clojure.string :as string]
