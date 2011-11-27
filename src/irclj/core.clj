@@ -68,7 +68,7 @@
   (connection/write-irc-line irc "NICK" nick))
 
 (defn mode
-  "Get or set the mode for a channel."
+  "Request or set the mode for a channel."
   [irc channel & [modes]]
   (connection/write-irc-line irc "MODE" channel modes))
 
