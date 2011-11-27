@@ -135,9 +135,21 @@
    (alter irc update-in [:channels (first params) :users] dissoc nick))
   (events/fire irc :part m))
 
+;; Modes are complicated. Parsing them and trying to update a bunch of data properly
+;; would be error-prone and pointless. Instead, we'll just let clients do that if
+;; they really want to. However, we will go ahead and request the MODE from IRC
+;; when we see that it has been changed, that way we can maintain the current channel
+;; modes.
 (defmethod process-line "MODE" [m irc]
   (connection/write-irc-line irc "MODE" (first (:params m)))
   (events/fire irc :mode m))
+
+(defmethod process-line "KICK" [{:keys [params] :as m} irc]
+  (dosync
+   (alter irc update-in [:channels (first params) :users]
+          dissoc (second params)))
+  (events/fire irc :kick m))
+
 
 ;; We obviously don't need a defmethod for every single protocol response,
 ;; so we'll automagically fire callbacks for any response we don't recognize.
