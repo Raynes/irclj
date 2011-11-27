@@ -3179,33 +3179,29 @@ anotherkeyedchan.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn message
   [irc target &amp; s]
   (connection/write-irc-line irc &quot;PRIVMSG&quot; target
-                             (connection/end (string/join &quot; &quot; s))))</pre></td></tr><tr><td class="docs">
+                             (connection/end (string/join &quot; &quot; s))))</pre></td></tr><tr><td class="docs"><p>Identify with NICKSERV. Will block until the connection is registered.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn identify
-  &quot;Identify with NICKSERV. Will block until the connection is registered.&quot;
   [irc password]
   (when @(:ready? @irc)
-    (send-message irc &quot;NickServ&quot; &quot;IDENTIFY&quot; password)))</pre></td></tr><tr><td class="docs">
+    (message irc &quot;NickServ&quot; &quot;IDENTIFY&quot; password)))</pre></td></tr><tr><td class="docs"><p>Change your nickname on IRC.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn set-nick
-  &quot;Change your nickname on IRC.&quot;
   [irc nick]
-  (connection/write-irc-line irc &quot;NICK&quot; nick))</pre></td></tr><tr><td class="docs">
+  (connection/write-irc-line irc &quot;NICK&quot; nick))</pre></td></tr><tr><td class="docs"><p>Request or set the mode for a channel.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn mode
-  &quot;Request or set the mode for a channel.&quot;
   [irc channel &amp; [modes]]
-  (connection/write-irc-line irc &quot;MODE&quot; channel modes))</pre></td></tr><tr><td class="docs">
+  (connection/write-irc-line irc &quot;MODE&quot; channel modes))</pre></td></tr><tr><td class="docs"><p>Kick a user from a channel.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn kick
-  &quot;Kick a user from a channel.&quot;
   [irc channel user &amp; [message]]
   (connection/write-irc-line irc &quot;KICK&quot; channel user
-                             (when message (connection/end message))))</pre></td></tr><tr><td class="docs"><p>We fire our raw-log callback for the lines we read from IRC as well.</p>
+                             (when message (connection/end message))))</pre></td></tr><tr><td class="docs"><p>Prepare and process a line from IRC.</p>
+
+<p>We fire our raw-log callback for the lines we read from IRC as well.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn- process
-  &quot;Prepare and process a line from IRC.&quot;
   [irc line]
   (events/fire irc :raw-log :read line)
-  (process/process-line (parser/parse line) irc))</pre></td></tr><tr><td class="docs">
+  (process/process-line (parser/parse line) irc))</pre></td></tr><tr><td class="docs"><p>Connect to IRC. Connects in another thread and returns a big fat ref of
+   data about the connection, you, and IRC in general.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn connect
-  &quot;Connect to IRC. Connects in another thread and returns a big fat ref of
-   data about the connection, you, and IRC in general.&quot;
   [host port nick &amp;
    {:keys [timeout real-name mode username callbacks]
     :or {real-name &quot;irclj&quot;, mode 0
@@ -3231,9 +3227,8 @@ anotherkeyedchan.</p>
             (do (process irc line)
                 (recur (rest lines)))
             (events/fire irc :on-shutdown))))))
-    irc))</pre></td></tr><tr><td class="docs">
+    irc))</pre></td></tr><tr><td class="docs"><p>Close the socket associated with an IRC connection.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn kill
-  &quot;Close the socket associated with an IRC connection.&quot;
   [irc]
   (.close (get-in @irc [:connection :socket])))</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#irclj.parser" name="irclj.parser"><h1 class="project-name">irclj.parser</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs"><p>IRC messages -> Clojure maps.</p>
 
