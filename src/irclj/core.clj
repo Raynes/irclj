@@ -66,7 +66,7 @@
   "Identify with NICKSERV. Will block until the connection is registered."
   [irc password]
   (when @(:ready? @irc)
-    (send-message irc "NickServ" "IDENTIFY" password)))
+    (message irc "NickServ" "IDENTIFY" password)))
 
 (defn set-nick
   "Change your nickname on IRC."
