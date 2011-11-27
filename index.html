@@ -3145,7 +3145,11 @@ the info you want just by registering a callback that handles the data.</p>
             [irclj.process :as process]
             [irclj.events :as events]
             [irclj.connection :as connection]))</pre></td></tr><tr><td class="docs"><h2>IRC Commands</h2>
-</td><td class="codes"></td></tr><tr><td class="docs"><p>Joins channels. A channel is either a string or a vector of string and key.
+</td><td class="codes"></td></tr><tr><td class="docs"><p>clojure.string/join partially applied to ",".</p>
+</td><td class="codes"><pre class="brush: clojure">(def ^{:private true
+       :doc }
+  comma-join
+  (partial string/join &quot;,&quot;))</pre></td></tr><tr><td class="docs"><p>Joins channels. A channel is either a string or a vector of string and key.
    Blocks until :ready? is delivered.</p>
 
 <p>The IRC spec requires that servers allow for a join command to
@@ -3159,8 +3163,7 @@ anotherkeyedchan.</p>
   [irc &amp; channels]
   (let [[keyed regular] ((juxt filter remove) vector? channels)
         chans (concat (map first keyed) regular)
-        keys (map last keyed)
-        comma-join (partial string/join &quot;,&quot;)]
+        keys (map last keyed)]
     (when @(:ready? @irc)
       (connection/write-irc-line irc &quot;JOIN&quot; (comma-join chans) (comma-join keys)))))</pre></td></tr><tr><td class="docs"><p>Part from channels. A channel is either a string or a vector of string and key.
    If a :message key is passed, then that message is used as the parting message.
@@ -3189,7 +3192,12 @@ anotherkeyedchan.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn mode
   &quot;Request or set the mode for a channel.&quot;
   [irc channel &amp; [modes]]
-  (connection/write-irc-line irc &quot;MODE&quot; channel modes))</pre></td></tr><tr><td class="docs"><p>We fire our raw-log callback for the lines we read from IRC as well.</p>
+  (connection/write-irc-line irc &quot;MODE&quot; channel modes))</pre></td></tr><tr><td class="docs">
+</td><td class="codes"><pre class="brush: clojure">(defn kick
+  &quot;Kick a user from a channel.&quot;
+  [irc channel user &amp; [message]]
+  (connection/write-irc-line irc &quot;KICK&quot; channel user
+                             (when message (connection/end message))))</pre></td></tr><tr><td class="docs"><p>We fire our raw-log callback for the lines we read from IRC as well.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn- process
   &quot;Prepare and process a line from IRC.&quot;
   [irc line]
