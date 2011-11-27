@@ -52,7 +52,7 @@
                                (when-let [message (:message opts)]
                                  (connection/end message)))))
 
-(defn send-message
+(defn message
   "Sends a PRIVMSG to a user or channel."
   [irc target & s]
   (connection/write-irc-line irc "PRIVMSG" target
