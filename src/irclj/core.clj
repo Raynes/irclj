@@ -29,26 +29,28 @@
 ;; `JOIN keyedchan,nonkeyed,anotherkeyedchan key,key2`
 ;; then IRC would think that key2 is for nonkeyed and not for
 ;; anotherkeyedchan.
-(defn join-channels
+(defn join
   "Joins channels. A channel is either a string or a vector of string and key.
    Blocks until :ready? is delivered."
   [irc & channels]
   (let [[keyed regular] ((juxt filter remove) vector? channels)
         chans (concat (map first keyed) regular)
-        keys (map last keyed)]
+        keys (map last keyed)
+        comma-join (partial string/join ",")]
     (when @(:ready? @irc)
-      (connection/write-irc-line irc
-                                 "JOIN"
-                                 (string/join "," chans)
-                                 (string/join "," keys)))))
+      (connection/write-irc-line irc "JOIN" (comma-join chans) (comma-join keys)))))
 
-(defn part-channels
+(defn part
   "Part from channels. A channel is either a string or a vector of string and key.
-   If message is nil, no part message is used."
-  [irc message & channels]
-  (connection/write-irc-line irc "PART"
-                             (string/join "," channels)
-                             (connection/end message)))
+   If a :message key is passed, then that message is used as the parting message.
+   If this key is passed, it **must** be the last thing passed to this function."
+  [irc & channels-and-opts]
+  (let [[channels opts] (split-with (complement keyword?) channels-and-opts)
+        opts (apply hash-map opts)]
+    (connection/write-irc-line irc "PART"
+                               (string/join "," channels)
+                               (when-let [message (:message opts)]
+                                 (connection/end message)))))
 
 (defn send-message
   "Sends a PRIVMSG to a user or channel."
