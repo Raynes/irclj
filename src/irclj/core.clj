@@ -67,6 +67,19 @@
   [irc m & s]
   (apply message irc (:target m) s))
 
+(defn ctcp
+  "Send a CTCP message to a user or channel. action is a keyword indicating
+   the kind of CTCP you're sending. For example,
+
+   (ctcp irc \"#foo\" :action \"drinks his smoothy\")
+
+   The above is the same as if you were in an IRC client sending
+   /me drinks his smoothy"
+  [irc target kind & s]
+  (message irc target (format "\u0001%s %s\u0001"
+                              (.toUpperCase (name kind))
+                              (string/join " " s))))
+
 (defn identify
   "Identify with NICKSERV. Will block until the connection is registered."
   [irc password]
