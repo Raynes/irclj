@@ -62,6 +62,11 @@
   (connection/write-irc-line irc "PRIVMSG" target
                              (connection/end (string/join " " s))))
 
+(defn reply
+  "Reply to a PRIVMSG. Determines user or channel based on original message."
+  [irc m & s]
+  (apply message irc (:target m) s))
+
 (defn identify
   "Identify with NICKSERV. Will block until the connection is registered."
   [irc password]

@@ -68,7 +68,7 @@
      (alter irc update-in [:channels channel]
             (fn [old]
               (-> old
-                  (assoc :indicator (doto (indicators indicator) prn))
+                  (assoc :indicator (indicators indicator))
                   (update-in [:users] #(into names %))))))))
 
 ;; At this point, the IRC server has registered our connection. We can communicate
@@ -150,6 +150,16 @@
           dissoc (second params)))
   (events/fire irc :kick m))
 
+(defmethod process-line "PRIVMSG" [{:keys [params] :as m} irc]
+  (let [[target text] params
+        m (assoc m :target target, :text text)]
+    (if-let [[_ message] (re-find #"\u0001(.*)\u0001" text)]
+      (let [[ctcp remainder] (string/split message #"\s+" 2)]
+        (events/fire irc (keyword (str "ctcp-" (.toLowerCase ctcp)))
+                     (assoc m
+                       :ctcp-text remainder
+                       :ctcp-kind ctcp)))
+      (events/fire irc :privmsg m))))
 
 ;; We obviously don't need a defmethod for every single protocol response,
 ;; so we'll automagically fire callbacks for any response we don't recognize.
