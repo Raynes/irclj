@@ -1,12 +1,17 @@
 # irclj
 
-Irclj is currently in the middle of a complete rewrite. When it is ready for public consumption, releases will be announced on the Clojure mailing list. I'll also [tweet](http://twitter.com/IORayne) about it. Heaven knows I'll brag about it on IRC. Seriously, I might even come to you in a dream. You wont miss it.
+Irclj is a very simple and robust IRC library for Clojure. It is entirely asynchronous and callback-based.
+
+In its current state, Irclj is a rewrite. It is WIP, but useful as it stands.
 
 If you're really, really interested in the old pathetic code, it's tagged 0.4.1. Have fun. Wear sunglasses.
 
 ## Usage
 
-Don't.
+https://clojars.org/irclj
+
+Note that this is still a work in progress. Some things may not work, or obvious things may be missing.
+Check out the issue tracker to see what needs to be done, and please contribute if you can!
 
 ## License
 
