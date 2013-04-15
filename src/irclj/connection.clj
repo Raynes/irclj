@@ -42,9 +42,11 @@
 ;; IRC requires that you do this little dance to register your connection
 ;; with the IRC network.
 (defn register-connection
-  "writes NICK and USER messages to IRC, registering the connection."
+  "writes NICK and USER (and optionally PASS) messages to IRC, registering the connection."
   [irc]
-  (let [{:keys [nick username real-name init-mode]} @irc]
+  (let [{:keys [pass nick username real-name init-mode]} @irc]
+    (when pass
+      (write-irc-line irc "PASS" pass))
     (write-irc-line irc "NICK" nick)
     (write-irc-line irc "USER" (or username nick) init-mode "*" (end real-name))))
 

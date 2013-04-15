@@ -113,13 +113,14 @@
   "Connect to IRC. Connects in another thread and returns a big fat ref of
    data about the connection, you, and IRC in general."
   [host port nick &
-   {:keys [timeout real-name mode username callbacks]
+   {:keys [pass timeout real-name mode username callbacks]
     :or {real-name "irclj", mode 0
          callbacks {:raw-log events/stdout-callback}}
     :as all}]
   (let [{:keys [in] :as connection} (connection/create-connection host port)
         irc (ref {:connection connection
                   :shutdown? false
+                  :pass pass
                   :nick nick
                   :real-name real-name
                   :username username
