@@ -63,7 +63,7 @@
         names (into {}
                     (map (nick-parser (:prefixes @irc))
                          (string/split names #" ")))]
-    
+
     (dosync
      (alter irc update-in [:channels channel]
             (fn [old]
@@ -96,7 +96,7 @@
 (defmethod process-line "PING" [m irc]
   (connection/write-irc-line irc (.replace (:raw m) "PING" "PONG")))
 
-(defn- update-nicks [users old-nick new-nick]  
+(defn- update-nicks [users old-nick new-nick]
   (when users
     (let [old-data (users old-nick)]
       (assoc (dissoc users old-nick) new-nick old-data))))
