@@ -132,7 +132,7 @@
                   :ready? (promise)})]
     (deliver irc-promise irc)
     (connection/register-connection irc)
-    (lamina/receive-all conn process)
+    (lamina/receive-all conn (partial process irc))
     (lamina/on-drained conn #(events/fire irc :on-shutdown))
     irc))
 
