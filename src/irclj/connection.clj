@@ -37,6 +37,7 @@
                                :frame (gloss/string :utf-8 :delimiters ["\r\n"])})]
     (lamina/splice (lamina/join conn (lamina/channel))
                    (doto (->> (lamina/channel)
+                              (lamina/remove* empty?)
                               (lamina/map* (fn [x]
                                              (if (coll? x)
                                                (string/join " " x)
@@ -51,7 +52,7 @@
   "writes NICK and USER (and optionally PASS) messages to IRC, registering the connection."
   [irc]
   (let [{:keys [pass nick username real-name init-mode connection]} @irc]
-    (apply lamina/enqueue connection
-           `[~@(when pass [["PASS" pass]])
-             ~["NICK" nick]
-             ~["USER" (or username nick) init-mode "*" (end real-name)]])))
+    (lamina/enqueue connection
+                    (when pass ["PASS" pass])
+                    ["NICK" nick]
+                    ["USER" (or username nick) init-mode "*" (end real-name)])))
