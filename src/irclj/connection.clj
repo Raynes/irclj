@@ -35,8 +35,7 @@
   [host port irc-promise]
   (let [conn @(tcp/tcp-client {:host host, :port port,
                                :frame (gloss/string :utf-8 :delimiters ["\r\n"])})]
-    (lamina/splice (doto (lamina/channel)
-                     (->> (lamina/join conn)))
+    (lamina/splice (lamina/join conn (lamina/channel))
                    (doto (->> (lamina/channel)
                               (lamina/map* (fn [x]
                                              (if (coll? x)
