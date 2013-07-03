@@ -15,6 +15,7 @@
 (ns irclj.core
   "An IRC library for Clojure."
   (:require [clojure.string :as string]
+            [lamina.core :as lamina]
             [irclj.parser :as parser]
             [irclj.process :as process]
             [irclj.events :as events]
@@ -117,8 +118,9 @@
     :or {real-name "irclj", mode 0
          callbacks {:raw-log events/stdout-callback}}
     :as all}]
-  (let [{:keys [in] :as connection} (connection/create-connection host port)
-        irc (ref {:connection connection
+  (let [irc-promise (promise)
+        conn (connection/create-connection host port irc-promise)
+        irc (ref {:connection conn
                   :shutdown? false
                   :pass pass
                   :nick nick
@@ -128,19 +130,13 @@
                   :init-mode mode
                   :network host
                   :ready? (promise)})]
-    (.start
-     (Thread.
-      (fn []
-        (connection/set-timeout irc timeout)
-        (connection/register-connection irc)
-        (loop [lines (connection/safe-line-seq in)]
-          (if-let [line (first lines)]
-            (do (process irc line)
-                (recur (rest lines)))
-            (events/fire irc :on-shutdown))))))
+    (deliver irc-promise irc)
+    (connection/register-connection irc)
+    (lamina/receive-all conn process)
+    (lamina/on-drained conn #(events/fire irc :on-shutdown))
     irc))
 
 (defn kill
   "Close the socket associated with an IRC connection."
   [irc]
-  (.close (get-in @irc [:connection :socket])))
+  (lamina/close (:connection @irc)))
