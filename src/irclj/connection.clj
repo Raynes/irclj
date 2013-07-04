@@ -35,16 +35,19 @@
   [host port irc-promise]
   (let [conn @(tcp/tcp-client {:host host, :port port,
                                :frame (gloss/string :utf-8 :delimiters ["\r\n"])})]
-    (lamina/splice (lamina/join conn (lamina/channel))
-                   (doto (->> (lamina/channel)
-                              (lamina/remove* empty?)
-                              (lamina/map* (fn [x]
-                                             (if (coll? x)
-                                               (string/join " " x)
-                                               x))))
-                     (lamina/join conn)
-                     (lamina/receive-all (fn [s]
-                                           (events/fire @irc-promise :raw-log :write s)))))))
+    (lamina/splice conn
+                   (let [out (lamina/channel)
+                         fixed-out (->> out
+                                        (lamina/remove* empty?)
+                                        (lamina/map* (fn [x]
+                                                       (if (coll? x)
+                                                         (string/join " " x)
+                                                         x))))]
+                     (lamina/join fixed-out conn)
+                     (lamina/receive-all fixed-out (fn [s]
+                                                     (events/fire @irc-promise
+                                                                  :raw-log :write s)))
+                     out))))
 
 ;; IRC requires that you do this little dance to register your connection
 ;; with the IRC network.

@@ -131,8 +131,8 @@
                   :network host
                   :ready? (promise)})]
     (deliver irc-promise irc)
-    (connection/register-connection irc)
     (lamina/receive-all conn (partial process irc))
+    (connection/register-connection irc)
     (lamina/on-drained conn #(events/fire irc :on-shutdown))
     irc))
 
