@@ -36,9 +36,8 @@
   (let [[single multi] (string/split
                         (string/join
                          " "
-                         (if prefix
-                           (drop 2 line-s)
-                           (rest line-s)))
+                         (drop (if prefix 2 1)
+                               line-s))
                         #":"
                         2)
         split-single (string/split single #" ")]
