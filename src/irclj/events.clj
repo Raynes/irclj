@@ -1,5 +1,13 @@
 (ns irclj.events
-  "Default callbacks and event firing.")
+  "Default callbacks and event firing."
+  (:require [lamina.core :as lamina]))
+
+(defn event-channel [irc type]
+  (get (swap! (:channels @irc)
+              update-in [type]
+              (fn [ch]
+                (or ch (lamina/grounded-channel))))
+       type))
 
 ;; We're using an event-based system for communicating with users. This
 ;; fires event callbacks.
