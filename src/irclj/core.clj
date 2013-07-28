@@ -52,7 +52,7 @@
   (let [[channels opts] (split-with (complement keyword?) channels-and-opts)
         opts (apply hash-map opts)]
     (connection/write-irc-line irc "PART"
-                               (string/join "," channels)
+                               (comma-join channels)
                                (when-let [message (:message opts)]
                                  (connection/end message)))))
 
