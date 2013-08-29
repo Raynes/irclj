@@ -102,6 +102,11 @@
   (connection/write-irc-line irc "KICK" channel user
                              (when message (connection/end message))))
 
+(defn list
+  "Request list of channels and topics."
+  [irc & channels]
+  (connection/write-irc-line irc "LIST" (clojure.string/join "," channels)))
+
 ;; We fire our raw-log callback for the lines we read from IRC as well.
 (defn- process
   "Prepare and process a line from IRC."
