@@ -102,6 +102,10 @@
   (connection/write-irc-line irc "KICK" channel user
                              (when message (connection/end message))))
 
+(defn quit
+  [irc]
+  (connection/write-irc-line irc "QUIT"))
+
 ;; We fire our raw-log callback for the lines we read from IRC as well.
 (defn- process
   "Prepare and process a line from IRC."
