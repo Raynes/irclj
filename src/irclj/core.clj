@@ -131,13 +131,19 @@
     (.start
      (Thread.
       (fn []
-        (connection/set-timeout irc timeout)
-        (connection/register-connection irc)
-        (loop [lines (connection/safe-line-seq in)]
-          (if-let [line (first lines)]
-            (do (process irc line)
-                (recur (rest lines)))
-            (events/fire irc :on-shutdown))))))
+        (try
+          (connection/set-timeout irc timeout)
+          (connection/register-connection irc)
+          (loop [lines (connection/safe-line-seq in)]
+            (if-let [line (first lines)]
+              (do (process irc line)
+                  (recur (rest lines)))
+              (events/fire irc :on-shutdown)))
+          (catch Exception e
+            (deliver (:ready? @irc) false) ;; unblock the promise
+            (events/fire irc :on-exception e)
+            (throw))))))
+
     irc))
 
 (defn kill
