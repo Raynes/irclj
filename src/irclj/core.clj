@@ -102,6 +102,10 @@
   (connection/write-irc-line irc "KICK" channel user
                              (when message (connection/end message))))
 
+(defn quit
+  [irc]
+  (connection/write-irc-line irc "QUIT"))
+
 ;; We fire our raw-log callback for the lines we read from IRC as well.
 (defn- process
   "Prepare and process a line from IRC."
@@ -113,11 +117,11 @@
   "Connect to IRC. Connects in another thread and returns a big fat ref of
    data about the connection, you, and IRC in general."
   [host port nick &
-   {:keys [pass timeout real-name mode username callbacks]
-    :or {real-name "irclj", mode 0
+   {:keys [pass timeout real-name mode username callbacks ssl?]
+    :or {real-name "irclj", mode 0, ssl? false
          callbacks {:raw-log events/stdout-callback}}
     :as all}]
-  (let [{:keys [in] :as connection} (connection/create-connection host port)
+  (let [{:keys [in] :as connection} (connection/create-connection host port ssl?)
         irc (ref {:connection connection
                   :shutdown? false
                   :pass pass
@@ -131,13 +135,19 @@
     (.start
      (Thread.
       (fn []
-        (connection/set-timeout irc timeout)
-        (connection/register-connection irc)
-        (loop [lines (connection/safe-line-seq in)]
-          (if-let [line (first lines)]
-            (do (process irc line)
-                (recur (rest lines)))
-            (events/fire irc :on-shutdown))))))
+        (try
+          (connection/set-timeout irc timeout)
+          (connection/register-connection irc)
+          (loop [lines (connection/safe-line-seq in)]
+            (if-let [line (first lines)]
+              (do (process irc line)
+                  (recur (rest lines)))
+              (events/fire irc :on-shutdown)))
+          (catch Exception e
+            (deliver (:ready? @irc) false) ;; unblock the promise
+            (events/fire irc :on-exception e)
+            (throw))))))
+
     irc))
 
 (defn kill

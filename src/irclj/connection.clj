@@ -3,6 +3,7 @@
             [clojure.java.io :as io]
             [irclj.events :as events])
   (:import java.net.Socket
+           javax.net.ssl.SSLSocketFactory
            java.io.IOException))
 
 ;; We want to allow users to log raw input and output in whatever way
@@ -33,8 +34,10 @@
 (defn create-connection
   "Creates a socket from a host and a port. Returns a map
    of the socket and readers over its input and output."
-  [host port]
-  (let [socket (Socket. host port)]
+  [host port ssl?]
+  (let [socket (if ssl?
+                 (.createSocket (SSLSocketFactory/getDefault) host port)
+                 (Socket. host port))]
     {:socket socket
      :in (io/reader socket)
      :out (io/writer socket)}))
