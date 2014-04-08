@@ -152,7 +152,7 @@
           (catch Exception e
             (deliver (:ready? @irc) false) ;; unblock the promise
             (events/fire irc :on-exception e)
-            (throw))))))
+            (throw e))))))
 
     irc))
 
