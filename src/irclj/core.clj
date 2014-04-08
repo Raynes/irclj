@@ -130,7 +130,7 @@
   (let [{:keys [in] :as connection} (connection/create-connection host port ssl?)
         irc (ref {:connection connection
                   :shutdown? false
-                  :prefixes []
+                  :prefixes {}
                   :pass pass
                   :nick nick
                   :real-name real-name
