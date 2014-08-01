@@ -37,6 +37,10 @@ protocol message, including the numeric messages. Most of the time you're going
 to want to capture PRIVMSG as demonstrated above though. Check out `events.clj`
 and `process.clj`.
 
+For a larger, but also simple example of a working bot, check out this fellow's
+bot: https://github.com/boxed/atpshowbot
+
+
 ## License
 
 Licensed under the EPL, same as Clojure itself.
