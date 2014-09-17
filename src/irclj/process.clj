@@ -135,6 +135,11 @@
    (alter irc update-in [:channels (first params) :users] dissoc nick))
   (events/fire irc :part m))
 
+(defmethod process-line "QUIT" [{:keys [nick params] :as m} irc]
+  (dosync
+   (alter irc update-in [:channels (first params) :users] dissoc nick))
+  (events/fire irc :part m))
+
 ;; Modes are complicated. Parsing them and trying to update a bunch of data properly
 ;; would be error-prone and pointless. Instead, we'll just let clients do that if
 ;; they really want to. However, we will go ahead and request the MODE from IRC
