@@ -139,21 +139,19 @@
                   :init-mode mode
                   :network host
                   :ready? (promise)})]
-    (.start
-     (Thread.
-      (fn []
-        (try
-          (connection/set-timeout irc timeout)
-          (connection/register-connection irc)
-          (loop [lines (connection/safe-line-seq in)]
-            (if-let [line (first lines)]
-              (do (process irc line)
-                  (recur (rest lines)))
-              (events/fire irc :on-shutdown)))
-          (catch Exception e
-            (deliver (:ready? @irc) false) ;; unblock the promise
-            (events/fire irc :on-exception e)
-            (throw e))))))
+    (future
+      (try
+        (connection/set-timeout irc timeout)
+        (connection/register-connection irc)
+        (loop [lines (connection/safe-line-seq in)]
+          (if-let [line (first lines)]
+            (do (process irc line)
+                (recur (rest lines)))
+            (events/fire irc :on-shutdown)))
+        (catch Exception e
+          (deliver (:ready? @irc) false) ;; unblock the promise
+          (events/fire irc :on-exception e)
+          (throw e))))
 
     irc))
 
